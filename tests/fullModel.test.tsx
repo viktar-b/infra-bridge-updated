@@ -87,20 +87,16 @@ describe('complete declarative infrastructure bridge model', () => {
         siteKey: keyPath.slice(keyPath.lastIndexOf('/') + 1),
         siteName: semantics?.properties?.['name'],
         origin: localOriginFrom(localTransforms),
-        bearing: localXAxisFrom(localTransforms),
         bridgeKey: firstChildLocalKey(children),
+        rotated: localTransforms.some((op) => op.op === 'rotate'),
       }))
     ).toEqual(
-      RAIL_SITE_OCCURRENCES.map(({ occurrenceKey, siteName, origin, bearingDegrees }) => ({
+      RAIL_SITE_OCCURRENCES.map(({ occurrenceKey, siteName, origin }) => ({
         siteKey: railSiteKey(occurrenceKey),
         siteName,
         origin,
-        bearing: [
-          Math.cos((bearingDegrees * Math.PI) / 180),
-          Math.sin((bearingDegrees * Math.PI) / 180),
-          0,
-        ],
         bridgeKey: railBridgeKey(occurrenceKey),
+        rotated: false,
       }))
     );
   });
@@ -123,19 +119,49 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(new Set(nodes.map(({ keyPath }) => keyPath)).size).toBe(nodes.length);
   });
 
-  it('leaves rotated civil sites to familiesToBim translation-only spatial rules', async () => {
+  it('exports the full authored tree through familiesToBim', async () => {
     const root = resolve(await buildInfraBridge());
     using evaluator = new csg.Evaluator();
-    const result = familiesToBim(root, {
-      project: { name: 'infra-bridge', projectId: 'infra-bridge' },
-      bodyEvaluator: evaluator,
-      proxyEvaluator: evaluator,
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.code).toBe('FAMILIES_UNSUPPORTED_TRANSFORM');
-    expect(result.error.message).toContain('infra-bridge/road-site');
-  });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+    expect(bim.getBridges()).toHaveLength(3);
+    expect(bim.getBridgeParts()).toHaveLength(18);
+    expect(bim.getBeams()).toHaveLength(8);
+    expect(bim.getColumns()).toHaveLength(7);
+    expect(bim.getFootings()).toHaveLength(7);
+    expect(bim.getSlabs()).toHaveLength(3);
+    expect(bim.getWalls()).toHaveLength(4);
+    expect(bim.getRailings()).toHaveLength(2);
+    expect(bim.getEarthworksFills()).toHaveLength(4);
+    expect(projected.proxied).toHaveLength(12);
+    expect(projected.proxied.every(({ type }) => type === 'ArchSegment' || type === 'BridgeNameSign')).toBe(
+      true
+    );
+    expect(
+      flatten(root)
+        .filter(
+          ({ semantics }) =>
+            semantics?.kind === 'site' ||
+            semantics?.kind === 'facility' ||
+            semantics?.kind === 'spatial-part'
+        )
+        .every(({ localTransforms }) => localTransforms.every((op) => op.op !== 'rotate'))
+    ).toBe(true);
+    const bytes = unwrap(
+      await toIfc(bim, {
+        applicationName: 'infra-bridge',
+        applicationVersion: '0',
+        ifcSchema: 'IFC4X3',
+      })
+    );
+    expect(bytes.byteLength).toBeGreaterThan(10_000);
+  }, 60_000);
 
   it('exports a translation-only civil tree through familiesToBim', async () => {
     const AxisAlignedBridgePart = family(
@@ -235,15 +261,6 @@ function localOriginFrom(
 ): readonly [number, number, number] {
   const op = ops.find((item) => item.op === 'translate');
   return op?.op === 'translate' ? op.v : [0, 0, 0];
-}
-
-function localXAxisFrom(
-  ops: ResolvedElement['localTransforms']
-): readonly [number, number, number] {
-  const op = ops.find((item) => item.op === 'rotate');
-  const degrees = op?.op === 'rotate' ? op.angleDeg : 0;
-  const radians = (degrees * Math.PI) / 180;
-  return [Math.cos(radians), Math.sin(radians), 0];
 }
 
 function categoryCounts(categories: readonly string[]): Readonly<Record<string, number>> {

@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { BridgeDeck } from '../families/bridgeDeck.tsx';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { RoadRailing, roadRailingPostProfileSchema } from '../families/roadRailing.tsx';
 import { MATERIALS } from '../materials.ts';
 import { roadDeckSetOut } from '../setout.ts';
@@ -72,7 +72,7 @@ export const RoadDeck = family<RoadDeckProps, RoadDeckInput>(
       postProfile,
       material: MATERIALS.bridgeTimber,
     } as const;
-    return el('Group', { transform: transform ?? [] }, [
+    return spatialGroup(transform, [
       <BridgeDeck
         key="bridge-deck"
         transform={placement(setOut.slab.origin, setOut.slab.bearingDegrees)}

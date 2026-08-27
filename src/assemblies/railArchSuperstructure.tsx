@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { ArchSegment } from '../families/archSegment.tsx';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { BridgeNameSign } from '../families/bridgeNameSign.tsx';
 import { EarthFill } from '../families/earthFill.tsx';
 import { SpandrelWall } from '../families/spandrelWall.tsx';
@@ -113,7 +113,7 @@ export const RailArchSuperstructure = family<
         signElevation,
       });
 
-    return el('Group', { transform: transform ?? [] }, [
+    return spatialGroup(transform, [
       ...fillOccurrences.map(({ key, origin }) => (
         <EarthFill key={key} transform={placement(origin)} {...fillProps} />
       )),

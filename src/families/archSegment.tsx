@@ -1,23 +1,23 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const archSegmentProps = z.object({
-  outerRun: z.number().positive(),
-  outerRise: z.number().positive(),
-  innerRun: z.number().positive(),
-  innerRise: z.number().positive(),
-  bandThickness: z.number().positive(),
-  halfWidth: z.number().positive(),
-  horizontalControlFactor: z.number().min(0).max(1).default(0.548),
-  verticalControlFactor: z.number().min(0).max(1).default(0.566),
-  curveSegments: z.number().int().min(4).max(48).default(6),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Rail bridge arch segment'),
-  transform: transformProp,
+    outerRun: z.number().positive(),
+    outerRise: z.number().positive(),
+    innerRun: z.number().positive(),
+    innerRise: z.number().positive(),
+    bandThickness: z.number().positive(),
+    halfWidth: z.number().positive(),
+    horizontalControlFactor: z.number().min(0).max(1).default(0.548),
+    verticalControlFactor: z.number().min(0).max(1).default(0.566),
+    curveSegments: z.number().int().min(4).max(48).default(6),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Rail bridge arch segment'),
+    transform: transformProp,
 });
 
 export type ArchSegmentProps = z.output<typeof archSegmentProps>;
@@ -70,10 +70,10 @@ export const ArchSegment = family<ArchSegmentProps, ArchSegmentInput>(
       const angle = ((curveSegments - index) * Math.PI) / (2 * curveSegments);
       return [innerRun * (1 - Math.cos(angle)), -halfWidth, innerRise * Math.sin(angle)] as const;
     });
-    return el('Geometry', {
-      transform: transform ?? [],
-      node: csg.extrude(csg.polygon([...outer, ...inner]), [0, halfWidth * 2, 0]),
-    });
+    return placedGeometry(
+      csg.extrude(csg.polygon([...outer, ...inner]), [0, halfWidth * 2, 0]),
+      transform
+    );
   },
   { props: archSegmentProps, semantics }
 );

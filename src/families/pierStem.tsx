@@ -1,18 +1,18 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const pierStemProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  height: z.number().positive(),
-  capOffset: z.number().nonnegative(),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Pier stem'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    capOffset: z.number().nonnegative(),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Pier stem'),
+    transform: transformProp,
 });
 
 export type PierStemProps = z.output<typeof pierStemProps>;
@@ -33,13 +33,13 @@ function semantics(props: PierStemProps) {
 export const PierStem = family<PierStemProps, PierStemInput>(
   'PierStem',
   ({ length, width, height, capOffset, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(length, width, height), [
+    placedGeometry(
+      csg.translate(csg.box(length, width, height), [
         -length / 2,
         -width / 2,
         -(capOffset + height),
       ]),
-    }),
+      transform
+    ),
   { props: pierStemProps, semantics }
 );

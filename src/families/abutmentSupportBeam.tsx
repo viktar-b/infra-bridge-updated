@@ -1,20 +1,20 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const abutmentSupportBeamProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  bearingInset: z.number().positive(),
-  bearingSeatHeight: z.number().positive(),
-  backHeight: z.number().positive(),
-  transverseSide: z.enum(['positive', 'negative']),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Abutment support beam'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    bearingInset: z.number().positive(),
+    bearingSeatHeight: z.number().positive(),
+    backHeight: z.number().positive(),
+    transverseSide: z.enum(['positive', 'negative']),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Abutment support beam'),
+    transform: transformProp,
 });
 
 export type AbutmentSupportBeamProps = z.output<typeof abutmentSupportBeamProps>;
@@ -44,9 +44,7 @@ export const AbutmentSupportBeam = family<AbutmentSupportBeamProps, AbutmentSupp
       [0, side * shoulder, bearingSeatHeight],
       [0, 0, backHeight],
     ]);
-    return el('Geometry', {
-      transform: transform ?? [],
-      node: csg.extrude(profile, [length, 0, 0]) });
+    return placedGeometry(csg.extrude(profile, [length, 0, 0]), transform);
   },
   { props: abutmentSupportBeamProps, semantics }
 );

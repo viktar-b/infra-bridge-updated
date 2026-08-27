@@ -8,10 +8,10 @@ import {
   type Blueprint,
   type CompoundBlueprint,
 } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { PROJECT_SIGN_FONT_FAMILY } from '../fonts/projectFont.ts';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 /** Metrics for the bundled project OpenType font. */
 export const PROJECT_SIGN_FONT = {
@@ -22,32 +22,32 @@ export const PROJECT_SIGN_FONT = {
 } as const;
 
 const bridgeNameSignProps = z
-  .object({
-    text: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(/^[BREPJS]+$/i, 'contains a glyph outside the project block font')
-      .transform((value) => value.toUpperCase()),
-    width: z.number().positive(),
-    height: z.number().positive(),
-    plateDepth: z.number().positive(),
-    reliefDepth: z.number().positive(),
-    material: z.string().trim().min(1),
-    name: z.string().trim().min(1).default('Bridge name sign'),
-    transform: transformProp,
-  })
-  .superRefine(({ text, width, height }, context) => {
-    const textWidth =
-      text.length * PROJECT_SIGN_FONT.advance -
-      (PROJECT_SIGN_FONT.advance - PROJECT_SIGN_FONT.glyphWidth);
-    if (textWidth > width) {
-      context.addIssue({ code: 'custom', path: ['text'], message: 'does not fit the sign width' });
-    }
-    if (PROJECT_SIGN_FONT.glyphHeight > height) {
-      context.addIssue({ code: 'custom', path: ['text'], message: 'does not fit the sign height' });
-    }
-  });
+    .object({
+      text: z
+        .string()
+        .trim()
+        .min(1)
+        .regex(/^[BREPJS]+$/i, 'contains a glyph outside the project block font')
+        .transform((value) => value.toUpperCase()),
+      width: z.number().positive(),
+      height: z.number().positive(),
+      plateDepth: z.number().positive(),
+      reliefDepth: z.number().positive(),
+      material: z.string().trim().min(1),
+      name: z.string().trim().min(1).default('Bridge name sign'),
+      transform: transformProp,
+    })
+    .superRefine(({ text, width, height }, context) => {
+      const textWidth =
+        text.length * PROJECT_SIGN_FONT.advance -
+        (PROJECT_SIGN_FONT.advance - PROJECT_SIGN_FONT.glyphWidth);
+      if (textWidth > width) {
+        context.addIssue({ code: 'custom', path: ['text'], message: 'does not fit the sign width' });
+      }
+      if (PROJECT_SIGN_FONT.glyphHeight > height) {
+        context.addIssue({ code: 'custom', path: ['text'], message: 'does not fit the sign height' });
+      }
+    });
 
 export type BridgeNameSignProps = z.output<typeof bridgeNameSignProps>;
 export type BridgeNameSignInput = z.input<typeof bridgeNameSignProps>;
@@ -84,19 +84,22 @@ export const BridgeNameSign = family<BridgeNameSignProps, BridgeNameSignInput>(
       fontFamily: PROJECT_SIGN_FONT.family,
       fontSize: PROJECT_SIGN_FONT.glyphHeight,
     });
-    const flatRelief = csg.compound(
-      outlines.blueprints.map((blueprint) =>
-        csg.extrude(profileFromBlueprint(blueprint), [0, 0, reliefDepth + 1])
-      )
-    );
-    const letters = csg.translate(csg.rotate(flatRelief, 90, { axis: [1, 0, 0] }), [
+    const letterOffset = [
       -textWidth / 2,
       -(plateDepth - 1),
       (height - PROJECT_SIGN_FONT.glyphHeight) / 2,
-    ]);
-    return el('Geometry', {
-      transform: transform ?? [],
-      node: csg.compound([plate, letters]) });
+    ] as const;
+    const glyphs = outlines.blueprints.map((blueprint) =>
+      csg.translate(
+        csg.rotate(csg.extrude(profileFromBlueprint(blueprint), [0, 0, reliefDepth + 1]), 90, {
+          axis: [1, 0, 0],
+        }),
+        letterOffset
+      )
+    );
+    let body: csg.SolidNode = plate;
+    for (const glyph of glyphs) body = csg.fuse(body, glyph);
+    return placedGeometry(body, transform);
   },
   { props: bridgeNameSignProps, semantics }
 );

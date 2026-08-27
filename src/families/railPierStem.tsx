@@ -1,17 +1,17 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const railPierStemProps = z.object({
-  longitudinalWidth: z.number().positive(),
-  transverseLength: z.number().positive(),
-  height: z.number().positive(),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Rail bridge pier stem'),
-  transform: transformProp,
+    longitudinalWidth: z.number().positive(),
+    transverseLength: z.number().positive(),
+    height: z.number().positive(),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Rail bridge pier stem'),
+    transform: transformProp,
 });
 
 export type RailPierStemProps = z.output<typeof railPierStemProps>;
@@ -36,13 +36,13 @@ function semantics(props: RailPierStemProps) {
 export const RailPierStem = family<RailPierStemProps, RailPierStemInput>(
   'RailPierStem',
   ({ longitudinalWidth, transverseLength, height, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(longitudinalWidth, transverseLength, height), [
+    placedGeometry(
+      csg.translate(csg.box(longitudinalWidth, transverseLength, height), [
         -longitudinalWidth / 2,
         0,
         0,
       ]),
-    }),
+      transform
+    ),
   { props: railPierStemProps, semantics }
 );

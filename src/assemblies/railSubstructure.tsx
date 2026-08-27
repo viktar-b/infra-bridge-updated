@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { RAIL_BRIDGE_SET_OUT } from '../setout.ts';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { RailPier } from './railPier.tsx';
 
 const railSubstructureProps = z.object({
@@ -29,7 +29,8 @@ function semantics(props: RailSubstructureProps) {
 export const RailSubstructure = family<RailSubstructureProps, RailSubstructureInput>(
   'RailSubstructure',
   ({ transform }) => {
-    return el('Group', { transform: transform ?? [] },
+    return spatialGroup(
+      transform,
       RAIL_BRIDGE_SET_OUT.piers.occurrences.map(({ key, origin }) => (
         <RailPier
           key={key}

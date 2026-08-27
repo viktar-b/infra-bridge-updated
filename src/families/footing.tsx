@@ -1,17 +1,17 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const footingProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  thickness: z.number().positive(),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Pier footing'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    thickness: z.number().positive(),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Pier footing'),
+    transform: transformProp,
 });
 
 export type FootingProps = z.output<typeof footingProps>;
@@ -32,9 +32,9 @@ function semantics(props: FootingProps) {
 export const Footing = family<FootingProps, FootingInput>(
   'Footing',
   ({ length, width, thickness, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(length, width, thickness), [-length / 2, -width / 2, -thickness]),
-    }),
+    placedGeometry(
+      csg.translate(csg.box(length, width, thickness), [-length / 2, -width / 2, -thickness]),
+      transform
+    ),
   { props: footingProps, semantics }
 );

@@ -1,11 +1,11 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { CrossGirder } from '../families/crossGirder.tsx';
 import { Footing } from '../families/footing.tsx';
 import { PierStem } from '../families/pierStem.tsx';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 
 const roadPierProps = z.object({
   concreteMaterial: z.string().trim().min(1),
@@ -64,7 +64,7 @@ export const RoadPier = family<RoadPierProps, RoadPierInput>(
     crossGirderInset,
     transform,
   }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <CrossGirder
         key="cross-girder"
         transform={placement([

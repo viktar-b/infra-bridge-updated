@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 export const roadRailingPostProfileSchema = z.object({
   toeWidth: z.number().positive(),
@@ -17,21 +17,21 @@ export const roadRailingPostProfileSchema = z.object({
 });
 
 const roadRailingProps = z.object({
-  length: z.number().positive(),
-  setoutInset: z.number().nonnegative(),
-  longitudinalSide: z.enum(['positive', 'negative']),
-  railWidth: z.number().positive(),
-  railHeight: z.number().positive(),
-  lowerRailBase: z.number(),
-  upperRailBase: z.number(),
-  postPitch: z.number().positive(),
-  postThickness: z.number().positive(),
-  postRunIn: z.number().nonnegative(),
-  postRunOut: z.number().nonnegative(),
-  postProfile: roadRailingPostProfileSchema,
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Road bridge railing'),
-  transform: transformProp,
+    length: z.number().positive(),
+    setoutInset: z.number().nonnegative(),
+    longitudinalSide: z.enum(['positive', 'negative']),
+    railWidth: z.number().positive(),
+    railHeight: z.number().positive(),
+    lowerRailBase: z.number(),
+    upperRailBase: z.number(),
+    postPitch: z.number().positive(),
+    postThickness: z.number().positive(),
+    postRunIn: z.number().nonnegative(),
+    postRunOut: z.number().nonnegative(),
+    postProfile: roadRailingPostProfileSchema,
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Road bridge railing'),
+    transform: transformProp,
 });
 
 export type RoadRailingProps = z.output<typeof roadRailingProps>;
@@ -130,9 +130,7 @@ export const RoadRailing = family<RoadRailingProps, RoadRailingInput>(
         0,
       ])
     );
-    return el('Geometry', {
-      transform: transform ?? [],
-      node: csg.compound([...rails, ...posts]) });
+    return placedGeometry(csg.compound([...rails, ...posts]), transform);
   },
   { props: roadRailingProps, semantics }
 );

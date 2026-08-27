@@ -1,18 +1,18 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const crossGirderProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  depth: z.number().positive(),
-  transverseSide: z.enum(['positive', 'negative']).default('positive'),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Cross girder'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    depth: z.number().positive(),
+    transverseSide: z.enum(['positive', 'negative']).default('positive'),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Cross girder'),
+    transform: transformProp,
 });
 
 export type CrossGirderProps = z.output<typeof crossGirderProps>;
@@ -33,13 +33,13 @@ function semantics(props: CrossGirderProps) {
 export const CrossGirder = family<CrossGirderProps, CrossGirderInput>(
   'CrossGirder',
   ({ length, width, depth, transverseSide, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(length, width, depth), [
+    placedGeometry(
+      csg.translate(csg.box(length, width, depth), [
         -length,
         transverseSide === 'positive' ? 0 : -width,
         0,
       ]),
-    }),
+      transform
+    ),
   { props: crossGirderProps, semantics }
 );

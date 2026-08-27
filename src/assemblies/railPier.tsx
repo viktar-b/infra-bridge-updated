@@ -1,11 +1,11 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { Footing } from '../families/footing.tsx';
 import { RailPierStem } from '../families/railPierStem.tsx';
 import { MATERIALS } from '../materials.ts';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 
 const railPierProps = z.object({
   stemLongitudinalWidth: z.number().positive(),
@@ -46,7 +46,7 @@ export const RailPier = family<RailPierProps, RailPierInput>(
     footingBearingDegrees,
     transform,
   }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <RailPierStem
         key="pier-stem"
         longitudinalWidth={stemLongitudinalWidth}

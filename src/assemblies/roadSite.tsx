@@ -1,8 +1,8 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { ROAD_BRIDGE_DATUM } from '../setout.ts';
 import { RoadGirderBridge } from './roadGirderBridge.tsx';
 
@@ -28,7 +28,7 @@ function semantics({ name }: RoadSiteProps) {
 export const RoadSite = family<RoadSiteProps, RoadSiteInput>(
   'RoadSite',
   ({ transform }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <RoadGirderBridge
         key="road-river-bridge"
         transform={placement(ROAD_BRIDGE_DATUM.origin, ROAD_BRIDGE_DATUM.bearingFromSiteDegrees)}

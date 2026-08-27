@@ -1,10 +1,10 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family, tRotate, tTranslate } from 'brepjs-families';
+import { civilSemantics, family, tRotate, tTranslate } from 'brepjs-families';
 import { z } from 'zod';
 import { ApproachSlab } from '../families/approachSlab.tsx';
 import { MATERIALS } from '../materials.ts';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { ROAD_BRIDGE_SET_OUT } from '../setout.ts';
 import { RoadAbutment } from './roadAbutment.tsx';
 
@@ -39,7 +39,7 @@ export const RoadApproach = family<RoadApproachProps, RoadApproachInput>(
     const sign = side === 'start' ? 1 : -1;
     const structuralSide = side === 'start' ? 'negative' : 'positive';
     const { slab, abutment } = ROAD_BRIDGE_SET_OUT.approaches;
-    return el('Group', { transform: transform ?? [] }, [
+    return spatialGroup(transform, [
       <ApproachSlab
         key="approach-slab"
         transform={[

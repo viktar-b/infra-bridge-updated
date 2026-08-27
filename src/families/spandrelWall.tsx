@@ -1,21 +1,21 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const spandrelWallProps = z.object({
-  length: z.number().positive(),
-  thickness: z.number().positive(),
-  height: z.number().positive(),
-  bayCount: z.number().int().min(1).max(8),
-  openingRun: z.number().positive(),
-  openingRise: z.number().positive(),
-  curveSegments: z.number().int().min(4).max(24).default(6),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Rail bridge spandrel wall'),
-  transform: transformProp,
+    length: z.number().positive(),
+    thickness: z.number().positive(),
+    height: z.number().positive(),
+    bayCount: z.number().int().min(1).max(8),
+    openingRun: z.number().positive(),
+    openingRise: z.number().positive(),
+    curveSegments: z.number().int().min(4).max(24).default(6),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Rail bridge spandrel wall'),
+    transform: transformProp,
 });
 
 export type SpandrelWallProps = z.output<typeof spandrelWallProps>;
@@ -70,10 +70,10 @@ export const SpandrelWall = family<SpandrelWallProps, SpandrelWallInput>(
     const openings = Array.from({ length: bayCount }, (_, index) =>
       openingTools(index * bayWidth, bayWidth, openingRun, openingRise, thickness, curveSegments)
     ).flat();
-    return el('Geometry', {
-      transform: transform ?? [],
-      node: csg.cutAll(csg.box(length, thickness, height), openings),
-    });
+    return placedGeometry(
+      csg.cutAll(csg.box(length, thickness, height), openings),
+      transform
+    );
   },
   { props: spandrelWallProps, semantics }
 );

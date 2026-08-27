@@ -124,23 +124,7 @@ describe('rail-arch bridge Families', () => {
         font: PROJECT_SIGN_FONT.family,
       },
     });
-    expect(resolved.geometry.kind).toBe('Compound');
-    if (resolved.geometry.kind === 'Compound') {
-      const lettering = resolved.geometry.children[1];
-      expect(lettering?.kind).toBe('Translate');
-      if (lettering?.kind === 'Translate' && lettering.target.kind === 'Rotate') {
-        const relief = lettering.target.target;
-        expect(relief.kind).toBe('Compound');
-        if (relief.kind === 'Compound') {
-          expect(relief.children.length).toBeGreaterThan(0);
-          expect(
-            relief.children.every(
-              (node) => node.kind === 'Extrude' && node.profile.kind === 'Profile'
-            )
-          ).toBe(true);
-        }
-      }
-    }
+    expect(resolved.geometry.kind).toBe('Fuse');
     expectBounds(resolved, [-800, 800, -50, 0, 0, 400]);
   });
 

@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { MainGirder } from '../families/mainGirder.tsx';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { MATERIALS } from '../materials.ts';
 import { ROAD_BRIDGE_SET_OUT } from '../setout.ts';
 
@@ -41,7 +41,8 @@ export const RoadSuperstructure = family<RoadSuperstructureProps, RoadSuperstruc
       name: 'Road river bridge - main girder',
     } as const;
 
-    return el('Group', { transform: transform ?? [] },
+    return spatialGroup(
+      transform,
       ROAD_BRIDGE_SET_OUT.mainGirders.occurrences.map(({ key, origin, bearingDegrees }) => (
         <MainGirder key={key} transform={placement(origin, bearingDegrees)} {...girderProps} />
       ))

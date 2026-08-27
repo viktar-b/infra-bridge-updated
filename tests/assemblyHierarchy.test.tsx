@@ -283,6 +283,10 @@ function localOrigin(el: ResolvedElement | undefined): readonly [number, number,
 }
 
 function localXAxis(el: ResolvedElement | undefined): readonly [number, number, number] {
+  const axis = el?.props['axisX'];
+  if (Array.isArray(axis) && axis.length === 3 && axis.every((value) => typeof value === 'number')) {
+    return axis as [number, number, number];
+  }
   const op = el?.localTransforms.find((item) => item.op === 'rotate');
   const degrees = op?.op === 'rotate' ? op.angleDeg : 0;
   const radians = (degrees * Math.PI) / 180;

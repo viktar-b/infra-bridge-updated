@@ -1,17 +1,17 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const mainGirderProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  depth: z.number().positive(),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Main girder'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    depth: z.number().positive(),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Main girder'),
+    transform: transformProp,
 });
 
 export type MainGirderProps = z.output<typeof mainGirderProps>;
@@ -32,9 +32,9 @@ function semantics(props: MainGirderProps) {
 export const MainGirder = family<MainGirderProps, MainGirderInput>(
   'MainGirder',
   ({ length, width, depth, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(length, width, depth), [-length, -width / 2, 0]),
-    }),
+    placedGeometry(
+      csg.translate(csg.box(length, width, depth), [-length, -width / 2, 0]),
+      transform
+    ),
   { props: mainGirderProps, semantics }
 );

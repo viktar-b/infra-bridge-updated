@@ -1,8 +1,8 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { spatialGroup, transformProp } from '../placement.ts';
 import { RAIL_SITE_OCCURRENCES, railBridgeKey, type RailSiteOccurrenceKey } from '../setout.ts';
 import { RailArchBridge } from './railArchBridge.tsx';
 
@@ -35,7 +35,7 @@ function semantics({ siteName }: RailSiteProps) {
 export const RailSite = family<RailSiteProps, RailSiteInput>(
   'RailSite',
   ({ occurrenceKey, bridgeName, transform }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <RailArchBridge key={railBridgeKey(occurrenceKey)} name={bridgeName} />,
     ]),
   { props: railSiteProps, semantics }

@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { AbutmentSupportBeam } from '../families/abutmentSupportBeam.tsx';
-import { transformProp } from '../placement.ts';
+import { spatialGroup, transformProp } from '../placement.ts';
 
 const roadAbutmentProps = z.object({
   transverseSide: z.enum(['positive', 'negative']),
@@ -35,7 +35,7 @@ function semantics(props: RoadAbutmentProps) {
 export const RoadAbutment = family<RoadAbutmentProps, RoadAbutmentInput>(
   'RoadAbutment',
   ({ transverseSide, length, width, bearingInset, bearingSeatHeight, backHeight, material, transform }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <AbutmentSupportBeam
         key="abutment-support-beam"
         length={length}

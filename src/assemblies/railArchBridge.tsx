@@ -1,8 +1,8 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { RAIL_BRIDGE_SET_OUT } from '../setout.ts';
 import { RailArchSuperstructure } from './railArchSuperstructure.tsx';
 import { RailSubstructure } from './railSubstructure.tsx';
@@ -30,7 +30,7 @@ export const RailArchBridge = family<RailArchBridgeProps, RailArchBridgeInput>(
   'RailArchBridge',
   ({ transform }) => {
     const componentTransform = placement([0, 0, 0], RAIL_BRIDGE_SET_OUT.componentBearingDegrees);
-    return el('Group', { transform: transform ?? [] }, [
+    return spatialGroup(transform, [
       <RailArchSuperstructure
         key="superstructure"
         transform={componentTransform}

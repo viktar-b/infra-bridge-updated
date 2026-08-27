@@ -1,18 +1,18 @@
 /** @jsxImportSource brepjs-families */
 
 import { csg } from 'brepjs';
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from '../placement.ts';
 
 const bridgeDeckProps = z.object({
-  length: z.number().positive(),
-  width: z.number().positive(),
-  thickness: z.number().positive(),
-  setoutInset: z.number().nonnegative(),
-  material: z.string().trim().min(1),
-  name: z.string().trim().min(1).default('Bridge deck'),
-  transform: transformProp,
+    length: z.number().positive(),
+    width: z.number().positive(),
+    thickness: z.number().positive(),
+    setoutInset: z.number().nonnegative(),
+    material: z.string().trim().min(1),
+    name: z.string().trim().min(1).default('Bridge deck'),
+    transform: transformProp,
 });
 
 export type BridgeDeckProps = z.output<typeof bridgeDeckProps>;
@@ -33,13 +33,13 @@ function semantics(props: BridgeDeckProps) {
 export const BridgeDeck = family<BridgeDeckProps, BridgeDeckInput>(
   'BridgeDeck',
   ({ length, width, thickness, setoutInset, transform }) =>
-    el('Geometry', {
-      transform: transform ?? [],
-      node: csg.translate(csg.box(length, width, thickness), [
+    placedGeometry(
+      csg.translate(csg.box(length, width, thickness), [
         -setoutInset,
         -(width - setoutInset),
         0,
       ]),
-    }),
+      transform
+    ),
   { props: bridgeDeckProps, semantics }
 );

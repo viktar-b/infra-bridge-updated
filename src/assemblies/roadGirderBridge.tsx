@@ -1,9 +1,9 @@
 /** @jsxImportSource brepjs-families */
 
-import { civilSemantics, el, family } from 'brepjs-families';
+import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { ROAD_BRIDGE_SET_OUT } from '../setout.ts';
-import { placement, transformProp } from '../placement.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
 import { RoadApproach } from './roadApproach.tsx';
 import { RoadDeck } from './roadDeck.tsx';
 import { RoadSubstructure } from './roadSubstructure.tsx';
@@ -25,7 +25,7 @@ const semantics = civilSemantics({
 export const RoadGirderBridge = family<EmptyProps, EmptyInput>(
   'RoadGirderBridge',
   ({ transform }) =>
-    el('Group', { transform: transform ?? [] }, [
+    spatialGroup(transform, [
       <RoadSubstructure key="substructure" />,
       <RoadSuperstructure
         key="superstructure"
