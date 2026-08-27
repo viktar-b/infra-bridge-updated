@@ -1,0 +1,45 @@
+/** @jsxImportSource brepjs-families */
+
+import { csg } from 'brepjs';
+import { civilSemantics, el, family } from 'brepjs-families';
+import { z } from 'zod';
+import { transformProp } from '../placement.ts';
+
+const pierStemProps = z.object({
+  length: z.number().positive(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  capOffset: z.number().nonnegative(),
+  material: z.string().trim().min(1),
+  name: z.string().trim().min(1).default('Pier stem'),
+  transform: transformProp,
+});
+
+export type PierStemProps = z.output<typeof pierStemProps>;
+export type PierStemInput = z.input<typeof pierStemProps>;
+
+function semantics(props: PierStemProps) {
+  return civilSemantics({
+    kind: 'product',
+    category: 'column',
+    role: 'pier-stem',
+    material: props.material,
+    dimensionsMm: { length: props.length, width: props.width, height: props.height },
+    properties: { name: props.name, capOffset: props.capOffset, datum: 'pier-cap-control-point' },
+  });
+}
+
+/** Rectangular stem below a pier-cap control Datum in engineering coordinates. */
+export const PierStem = family<PierStemProps, PierStemInput>(
+  'PierStem',
+  ({ length, width, height, capOffset, transform }) =>
+    el('Geometry', {
+      transform: transform ?? [],
+      node: csg.translate(csg.box(length, width, height), [
+        -length / 2,
+        -width / 2,
+        -(capOffset + height),
+      ]),
+    }),
+  { props: pierStemProps, semantics }
+);

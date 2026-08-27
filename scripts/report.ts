@@ -1,9 +1,9 @@
 import { init, csg } from 'brepjs';
 import { resolve, evaluateModel } from 'brepjs-families';
-import model from '../src/main.tsx';
+import { buildInfraBridge } from '../src/main.tsx';
 
 await init();
-const tree = resolve(model);
+const tree = resolve(await buildInfraBridge());
 using evaluator = new csg.Evaluator();
 const evaluated = evaluateModel(tree, evaluator);
 for (const [keyPath, node] of evaluated.byKeyPath) {
