@@ -9,7 +9,7 @@ Read the repository instructions and the **Family invocation seam** and **Family
 
 Apply [codebase-design](../codebase-design/SKILL.md), then [principle-type-system-discipline](../principle-type-system-discipline/SKILL.md), [principle-boundary-discipline](../principle-boundary-discipline/SKILL.md), and [typescript-best-practices](../typescript-best-practices/SKILL.md). For a recurring correction, read [principle-encode-lessons-in-structure](../principle-encode-lessons-in-structure/SKILL.md) before adding instructions. Read [UPSTREAM.md](../UPSTREAM.md) only when refreshing these vendored skills.
 
-A Family is done when one public JSX invocation controls validation, target-neutral semantics, placement, viewport geometry, and adapter input without duplicating the geometry recipe.
+A Family is done when one public JSX invocation controls validation, target-neutral semantics, placement, viewport geometry, and adapter input without duplicating the geometry recipe or overstating exporter fidelity.
 
 ## Family flow
 
@@ -55,15 +55,45 @@ Semantics → Private `*Kernel`
 Exported Family: declarative JSX only
 ```
 
+Route each derivation by who must consume it:
+
+```text
+Validated Family props
+          │
+          ▼
+Is the derivation target-neutral?
+     ┌────┴────┐
+    no        yes
+    │           │
+CSG kernel   Does an adapter consume it?
+                ┌────┴────┐
+               no        yes
+               │           │
+        Private pure    Resolved schema
+          derivation       output
+               └─────┬─────┘
+                     ▼
+              Authored CSG body
+                     │
+                     ▼
+       Can the typed adapter express it exactly?
+            ┌────────┴────────┐
+           yes                no
+           │                   │
+     Prove parity       Preserve the authored body
+                       and report the adapter gap
+```
+
 ## 1. Trace both seams
 
-Read the Family, callers, composed schemas, set-out data, tests, placement helpers, and every adapter that reads the resolved element. Capture:
+Read the Family, callers, composed schemas, set-out data, tests, placement helpers, and every adapter that reads the resolved element. Build a preservation ledger with:
 
 - invocation props, defaults, exports, and validation behavior;
 - units, axes, datum, handedness, and placement;
 - identity, key paths, material, and semantics;
-- bounds, volume, openings, and occurrence count;
-- resolved props consumed by adapters.
+- geometry branches, bounds, volume, openings, and occurrence count;
+- adapter route and resolved props it consumes;
+- classification, body, and placement fidelity after projection.
 
 For an existing Family, treat every export and accepted input as interface until the user approves otherwise. Record latent validation gaps separately. Settle interface and package-ownership decisions before editing. For reconstruction, distinguish measurements from assumptions and retain each parameter's source.
 
@@ -75,7 +105,7 @@ Validate caller data at the invocation seam with Zod. Keep `z.input` explicit fo
 
 Export a schema only when another Family or assembly intentionally composes it. Preserve existing exports during an interface-preserving refactor, re-exporting from the original module if ownership moves.
 
-Derive each target-neutral profile, path, layout, or normalized dimension once in a pure function defined before its first use. Put adapter-consumed results on the outer schema output. Keep implementation-only results private even when semantics and the kernel share them.
+Derive each target-neutral profile, path, layout, or normalized dimension once in a pure function defined before its first use. Put adapter-consumed results on the outer schema output. Keep a target-neutral derivation private when only semantics and the kernel consume it. Keep CSG nodes, contours, cutting tools, evaluator handles, and disposable resources inside the kernel implementation.
 
 Done when semantics, kernel geometry, and adapters use one authoritative input or derived representation.
 
@@ -101,15 +131,21 @@ export const Member = family<MemberProps, MemberInput>(
 );
 ```
 
-`resolve()` keeps the outer Family's identity, props, semantics, key path, and children while rendering the kernel to an intrinsic. Keep private types and helpers in the same file until real reuse earns a shared module. Shared target-neutral Family contracts belong in `brepjs-families`; exporter vocabulary belongs in its adapter.
+`resolve()` keeps the outer Family's identity, props, semantics, key path, and children while rendering the kernel to an intrinsic. A rectangular kernel may remain one expression; depth comes from the public Family interface, not extra builder layers. Keep private types and helpers in the same file until intentional reuse gives another module ownership. Shared target-neutral Family contracts belong in `brepjs-families`; exporter vocabulary belongs in its adapter.
 
 Done when the public renderer contains no kernel recipe and the kernel is absent from the resolved product tree.
 
 ## 4. Verify through the exported Family
 
-Resolve and evaluate the public Family. Cover each branch that changes validation or geometry: handedness, datum and placement, relational dimensions, optional or repeated features, bounds or volume, resolved profiles, and semantic envelopes.
+Resolve and evaluate the public Family. Cover each branch that changes validation or geometry: handedness, datum and placement, relational dimensions, optional or repeated features, resolved profiles, and semantic envelopes. Match the assertion to the authored feature: use volume or section checks for profiles, opening or volume checks for cuts, and occurrence or component checks for repeated compounds. Bounds alone verify only envelopes.
 
-When an adapter can represent the Family exactly, compare its projected spec or solid with the authored CSG and exercise a practical export/import round trip. Otherwise report the adapter gap and keep the authored Family authoritative.
+Check projection along three independent axes:
+
+- **Classification fidelity:** category, role, and predefined type.
+- **Body fidelity:** profile, openings, components, bounds, and volume.
+- **Placement fidelity:** world Datum, origin, and orientation.
+
+When an adapter can represent the Family exactly, compare its projected spec or solid with the authored CSG and exercise a practical export/import round trip. Volume equality does not prove placement. When the adapter cannot express the body, measure and report the loss, then keep the authored Family authoritative. A proxy may preserve the body while losing classification; record both facts.
 
 For analysis, return the interface, recommended seam, ownership decisions, adapter gaps, and verification plan without editing. For implementation, run focused tests during the change, then typecheck and run the full suite.
 
@@ -121,9 +157,15 @@ Done when every recorded interface fact matches its baseline or an approved chan
 - Do not remove an export merely because repository search finds no consumer.
 - Do not abbreviate `z.input` or `z.output` with a helper that only hides Zod vocabulary.
 - Do not derive separate profiles or layouts for semantics, CSG, and adapters, or hide adapter-required data inside the kernel.
+- Do not expose a private layout merely because semantics also needs its envelope.
 - Do not import `brepjs-bim` into a Family for a structurally compatible type.
 - Do not create `utils.ts`, a registry, factory, port, or package contract for one helper or hypothetical consumer.
+- Do not move local Datum arithmetic or private types to a shared module without an intentional second owner.
 - Do not duplicate public prop shapes or use `any`, unchecked `as`, or non-null assertions.
 - Do not export or directly test the private kernel; test the public Family.
 - Do not evaluate shapes, allocate evaluators, dispose borrowed handles, or perform top-level kernel work in a Family module.
+- Do not treat a correct IFC category or matching bounds as proof of body parity.
+- Do not rebuild a detailed authored body from envelope dimensions and call the projection exact.
+- Do not tighten latent relational validation during an interface-preserving kernel extraction.
+- Do not wrap a one-expression rectangular kernel in extra builders or factories.
 - Do not change defaults, prop names, validation timing, semantics, datum, placement, or key behavior as an internal refactor.
