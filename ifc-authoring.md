@@ -54,6 +54,8 @@ The low-level `BimModel` already has more IFC than the declarative path uses: `P
 
 Until this lands, every bearing civil model needs a `placement.ts`. That is the highest-leverage library change.
 
+`ApproachSlab` exposes the same gap when a body has a local Datum offset beneath a baked pitch. The typed slab keeps the right dimensions and volume, but its IFC round trip does not retain the authored world bounds because `composedOrigin()` peels only outer translations. Fix this in `familiesToBim` by folding the rotated Datum offset into the slab spec placement. Do not move that adapter workaround into the Family.
+
 ### 1.2 Typed `IfcMember` (`ARCH_SEGMENT`)
 
 0.22 `BimCategory` has no `MEMBER`. `CIVIL_PRODUCT_ROUTES` has no `member`. With `proxyEvaluator`, the eight arch bands become `IfcBuildingElementProxy`; without it, export is a hard error.

@@ -171,6 +171,82 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(bytes.byteLength).toBeGreaterThan(10_000);
   }, 60_000);
 
+  it('preserves both ApproachSlab dimensions and volumes through typed BIM projection', async () => {
+    const root = resolve(await buildInfraBridge());
+    const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(approachSlabs).toHaveLength(2);
+    const projectedSlabs: Array<{
+      readonly guid: string;
+      readonly volumeMm3: number;
+    }> = [];
+    for (const approachSlab of approachSlabs) {
+      const localId = projected.idByKeyPath.get(approachSlab.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const slab = bim.getElement(localId);
+      expect(slab?.category).toBe('SLAB');
+      if (slab?.category !== 'SLAB') continue;
+      expect(slab.spec).toMatchObject({
+        length: approachSlab.props['length'],
+        width: approachSlab.props['width'],
+        thickness: approachSlab.props['thickness'],
+        predefinedType: 'FLOOR',
+      });
+
+      const authoredShape = evaluated.byKeyPath.get(approachSlab.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok) continue;
+      expect(isShape3D(authoredShape.value)).toBe(true);
+      if (!isShape3D(authoredShape.value)) continue;
+      const authoredVolume = unwrap(measureVolume(authoredShape.value));
+      const projectedVolume = unwrap(measureVolume(slab.geometry));
+      expect(projectedVolume).toBeCloseTo(authoredVolume, 3);
+      projectedSlabs.push({
+        guid: slab.guid,
+        volumeMm3: projectedVolume,
+      });
+    }
+
+    const bytes = unwrap(
+      await toIfc(bim, {
+        applicationName: 'infra-bridge',
+        applicationVersion: '0',
+        ifcSchema: 'IFC4X3',
+      })
+    );
+    const imported = unwrap(await fromIfc(bytes));
+    try {
+      expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
+      for (const expected of projectedSlabs) {
+        const slab = imported.elements.find(({ guid }) => guid === expected.guid);
+        expect(slab?.category).toBe('SLAB');
+        expect(slab?.geometry.fidelity).toBe('PARAMETRIC');
+        if (slab === undefined) continue;
+        const solid = slab.geometry.solid;
+        expect(solid).not.toBeNull();
+        if (solid === null) continue;
+        expect(unwrap(measureVolume(solid))).toBeCloseTo(expected.volumeMm3, 3);
+        const quantities = slab.psets.find(({ name }) => name === 'Qto_SlabBaseQuantities');
+        expect(quantities?.properties['NetVolume']).toBeCloseTo(expected.volumeMm3 / 1e9, 9);
+      }
+    } finally {
+      disposeImportedModel(imported);
+    }
+  }, 60_000);
+
+  it.todo('preserves the pitched ApproachSlab upper-inner Datum through BIM projection');
+
   it('preserves both signed abutment-support profiles through typed BIM projection', async () => {
     const root = resolve(await buildInfraBridge());
     const supportBeams = flatten(root).filter(({ type }) => type === 'AbutmentSupportBeam');

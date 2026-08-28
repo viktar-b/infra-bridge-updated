@@ -14,7 +14,7 @@ beforeAll(async () => {
 }, 120_000);
 
 describe('completed road-bridge Families', () => {
-  it('authors the pitched ApproachSlab around its upper inner Datum', () => {
+  it('authors ApproachSlab around its upper-inner Datum with the default transverse side', () => {
     const resolved = resolve(
       <ApproachSlab
         key="slab"
@@ -22,7 +22,6 @@ describe('completed road-bridge Families', () => {
         width={3_600}
         thickness={200}
         longitudinalSide="negative"
-        transverseSide="negative"
         material={MATERIALS.prefabricatedConcrete}
       />
     );
@@ -36,6 +35,37 @@ describe('completed road-bridge Families', () => {
     });
     expectBounds(resolved, [-2_435.296, 0, -3_600, 0, -200, 0]);
   });
+
+  it.each([
+    {
+      label: 'longitudinally',
+      longitudinalSide: 'positive',
+      transverseSide: 'negative',
+      expectedBounds: [0, 100, -50, 0, -10, 0],
+    },
+    {
+      label: 'transversely',
+      longitudinalSide: 'negative',
+      transverseSide: 'positive',
+      expectedBounds: [-100, 0, 0, 50, -10, 0],
+    },
+  ] as const)(
+    'mirrors ApproachSlab $label without moving its Datum',
+    ({ longitudinalSide, transverseSide, expectedBounds }) => {
+      const resolved = resolve(
+        <ApproachSlab
+          key="slab"
+          length={100}
+          width={50}
+          thickness={10}
+          longitudinalSide={longitudinalSide}
+          transverseSide={transverseSide}
+          material={MATERIALS.prefabricatedConcrete}
+        />
+      );
+      expectBounds(resolved, expectedBounds);
+    }
+  );
 
   it('authors the five-point AbutmentSupportBeam section in engineering axes', () => {
     const resolved = resolve(
