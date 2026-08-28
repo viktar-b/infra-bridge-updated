@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const approachSlabProps = z.object({
+/** Complete invocation schema for one handed rectangular approach slab, in millimetres. */
+export const approachSlabProps = z.object({
   length: z.number().positive(),
   width: z.number().positive(),
   thickness: z.number().positive(),

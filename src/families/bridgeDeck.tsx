@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const bridgeDeckProps = z.object({
+/** Complete invocation schema for one rectangular bridge deck slab, in millimetres. */
+export const bridgeDeckProps = z.object({
   length: z.number().positive(),
   width: z.number().positive(),
   thickness: z.number().positive(),

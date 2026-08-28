@@ -1,6 +1,6 @@
 ---
 name: design-brepjs-family
-description: Design or improve a brepjs Family as one deep declarative JSX module. Use when creating, reconstructing, or refactoring a Family, or checking its props, semantics, placement, private CSG kernel, and exporter parity.
+description: Design or improve a brepjs Family as one deep declarative JSX module. Use when creating, reconstructing, refactoring, or preparing a Family for drop-in distribution, or checking its props, semantics, placement, private CSG kernel, and exporter parity.
 ---
 
 # Design a brepjs Family
@@ -10,6 +10,18 @@ Read the repository instructions and the **Family invocation seam** and **Family
 Apply [codebase-design](../codebase-design/SKILL.md), then [principle-type-system-discipline](../principle-type-system-discipline/SKILL.md), [principle-boundary-discipline](../principle-boundary-discipline/SKILL.md), and [typescript-best-practices](../typescript-best-practices/SKILL.md). For a recurring correction, read [principle-encode-lessons-in-structure](../principle-encode-lessons-in-structure/SKILL.md) before adding instructions. Read [UPSTREAM.md](../UPSTREAM.md) only when refreshing these vendored skills.
 
 A Family is done when one public JSX invocation controls validation, target-neutral semantics, placement, viewport geometry, and adapter input without duplicating the geometry recipe or overstating exporter fidelity.
+
+## Parametric drop-in Family
+
+A **parametric drop-in Family** is a source-owned JSX module that another brepjs project can copy, edit, and use through documented engineering properties. It depends only on public brepjs packages and explicitly declared, copyable dependencies, never on hidden project set-out, assemblies, material catalogs, assets, or exporter implementation.
+
+Its invocation schema validates caller data, while the Family privately derives definition-owned semantics, Datum-aware geometry, and adapter-visible data from one authoritative model. Parameters vary documented aspects of one stated topology; arbitrary topology is not required.
+
+A **drop-in-ready Family** has a portable interface, co-located contract documentation, and declared dependencies. A **published drop-in Family** additionally has a complete registry payload and passes a clean consumer fixture. Export portability is a separate claim proven through classification, body, and placement parity.
+
+The consuming project owns copied source. Registry updates present explicit diffs and never overwrite local changes automatically.
+
+Every exported leaf Family targets the drop-in-ready standard. Assemblies may remain project-specific because they intentionally own set-out, occurrence composition, and material selection.
 
 ## Family flow
 
@@ -91,6 +103,8 @@ Read the Family, callers, composed schemas, set-out data, tests, placement helpe
 - invocation props, defaults, exports, and validation behavior;
 - units, axes, datum, handedness, and placement;
 - identity, key paths, material, and semantics;
+- fixed topology, runtime initialization, assets, and performance controls;
+- public package dependencies and copyable sibling dependencies;
 - geometry branches, bounds, volume, openings, and occurrence count;
 - adapter route and resolved props it consumes;
 - classification, body, and placement fidelity after projection.
@@ -103,7 +117,11 @@ Done when every caller and adapter dependency is accounted for and the behavior 
 
 Validate caller data at the invocation seam with Zod. Keep `z.input` explicit for JSX callers and `z.output` explicit for render, semantics, and resolved props. Use named dimension objects, discriminated unions for real variants, and relational validation for a new or deliberately redesigned interface.
 
-Export a schema only when another Family or assembly intentionally composes it. Preserve existing exports during an interface-preserving refactor, re-exporting from the original module if ownership moves.
+For a drop-in Family, export the Family, its complete props schema, and explicit `z.input` and `z.output` types. Export a nested schema only when another Family or assembly intentionally composes it. Preserve existing exports during an interface-preserving refactor, re-exporting from the original module if ownership moves.
+
+Keep core semantics definition-owned. Represent a genuine semantic or geometric alternative with a discriminated variant; do not accept an arbitrary semantics override that can contradict the authored body. Keep units, axes, Datum, fixed topology, runtime requirements, and performance controls beside the interface through expressive schema names and concise JSDoc.
+
+A drop-in-ready Family may depend on public brepjs packages and declared sibling modules with real shared ownership. Keep project set-out, assemblies, material catalogs, private assets, and exporter implementations outside it. An asset-backed Family must carry the asset in its declared payload and expose explicit, idempotent initialization; otherwise classify it as project-specific. Keep temporary upstream workarounds in a named compatibility module outside the Family.
 
 Derive each target-neutral profile, path, layout, or normalized dimension once in a pure function defined before its first use. Put adapter-consumed results on the outer schema output. Keep a target-neutral derivation private when only semantics and the kernel consume it. Keep CSG nodes, contours, cutting tools, evaluator handles, and disposable resources inside the kernel implementation.
 
@@ -147,18 +165,23 @@ Check projection along three independent axes:
 
 When an adapter can represent the Family exactly, compare its projected spec or solid with the authored CSG and exercise a practical export/import round trip. Volume equality does not prove placement. When the adapter cannot express the body, measure and report the loss, then keep the authored Family authoritative. A proxy may preserve the body while losing classification; record both facts.
 
-For analysis, return the interface, recommended seam, ownership decisions, adapter gaps, and verification plan without editing. For implementation, run focused tests during the change, then typecheck and run the full suite.
+For drop-in publication, add a registry payload that declares copied source, sibling modules, tests, assets, runtime initialization, and source revision. Prove the payload in one clean consumer fixture that imports every registered Family through its public entry point. The fixture must typecheck, resolve, and evaluate each Family without private repository imports. Registry updates may compare revisions and present a diff, but the copied source remains consumer-owned.
+
+For analysis, return the interface, recommended seam, ownership decisions, adapter gaps, portability state, and verification plan without editing. For implementation, run focused tests during the change, then typecheck and run the full suite.
 
 Done when every recorded interface fact matches its baseline or an approved change, and all required checks pass.
 
 ## What not to do
 
 - Do not expose CSG nodes, shapes, evaluator handles, or IFC objects through invocation props.
+- Do not call a Family drop-in-ready while it depends on undeclared project files or hidden runtime initialization.
+- Do not call a Family published until its complete payload passes the clean consumer fixture.
 - Do not remove an export merely because repository search finds no consumer.
 - Do not abbreviate `z.input` or `z.output` with a helper that only hides Zod vocabulary.
 - Do not derive separate profiles or layouts for semantics, CSG, and adapters, or hide adapter-required data inside the kernel.
 - Do not expose a private layout merely because semantics also needs its envelope.
 - Do not import `brepjs-bim` into a Family for a structurally compatible type.
+- Do not accept arbitrary caller-supplied semantics that can contradict the definition-owned body.
 - Do not create `utils.ts`, a registry, factory, port, or package contract for one helper or hypothetical consumer.
 - Do not move local Datum arithmetic or private types to a shared module without an intentional second owner.
 - Do not duplicate public prop shapes or use `any`, unchecked `as`, or non-null assertions.
@@ -168,4 +191,5 @@ Done when every recorded interface fact matches its baseline or an approved chan
 - Do not rebuild a detailed authored body from envelope dimensions and call the projection exact.
 - Do not tighten latent relational validation during an interface-preserving kernel extraction.
 - Do not wrap a one-expression rectangular kernel in extra builders or factories.
+- Do not let registry updates overwrite consumer-owned source automatically.
 - Do not change defaults, prop names, validation timing, semantics, datum, placement, or key behavior as an internal refactor.

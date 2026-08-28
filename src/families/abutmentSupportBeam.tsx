@@ -3,8 +3,9 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
+/** Reusable five-point bearing-seat section schema, in millimetres. */
 export const abutmentSupportBeamSectionProps = z
   .object({
     width: z.number().positive(),
@@ -60,7 +61,8 @@ function sectionProfile(
   };
 }
 
-const abutmentSupportBeamProps = z.object({
+/** Complete invocation schema for a five-point support beam, with dimensions in millimetres. */
+export const abutmentSupportBeamProps = z.object({
   length: z.number().positive(),
   section: abutmentSupportBeamSectionProps,
   transverseSide: z.enum(['positive', 'negative']),

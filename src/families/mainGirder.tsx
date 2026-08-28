@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const mainGirderProps = z.object({
+/** Complete invocation schema for one rectangular longitudinal girder, in millimetres. */
+export const mainGirderProps = z.object({
   length: z.number().positive(),
   width: z.number().positive(),
   depth: z.number().positive(),

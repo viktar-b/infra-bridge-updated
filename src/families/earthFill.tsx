@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const earthFillProps = z.object({
+/** Complete invocation schema for one symmetric sampled earth-fill crown, in millimetres. */
+export const earthFillProps = z.object({
   halfSpan: z.number().positive(),
   halfWidth: z.number().positive(),
   crownRise: z.number().positive(),

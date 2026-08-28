@@ -48,14 +48,20 @@ Tested on 2026-08-28 with:
 `familiesToBim` folds translations only. It rejects rotated typed Products and rotated Site,
 Bridge, and Bridge Part frames with `FAMILIES_UNSUPPORTED_TRANSFORM`.
 
-This repository works around the rejection in `src/placement.ts:62-160`. It removes rotation from
-civil spatial nodes, pushes yaw to child Products, stamps `axisX` and `axisZ` after Family
-validation, and bakes Product rotation into geometry.
+This repository works around the rejection in `src/placement.ts` and
+`src/families/familyPlacement.ts`. It removes rotation from civil spatial nodes, pushes yaw to
+child Products, stamps `axisX` and `axisZ` after Family validation, and bakes Product rotation into
+geometry.
 
 The pitched `ApproachSlab` exposes a second placement failure. Its upper-inner Datum translation
 is inside a rotated Body. The projected slab keeps the correct dimensions and volume but moves to
 the wrong world position after IFC round-trip. `composedOrigin()` only peels an outer literal
 translation chain.
+
+The leaf projection fixture also proves that the IFC writer shifts unrotated Datum-aware slabs and
+footings after an otherwise exact in-memory projection. On the fixture, `ApproachSlab` moves by
+`[-250, -150, 0]`, `BridgeDeck` moves by `[-300, -150, 0]`, and `Footing` moves by
+`[-250, -150, 0]`. These are half-dimension shifts, not rotation tolerance.
 
 #### Reproduction
 
@@ -71,6 +77,10 @@ The upstream issue contains a reduced `tRotate` reproduction. The local Datum ca
 ```ts
 it.todo('preserves the pitched ApproachSlab upper-inner Datum through BIM projection');
 ```
+
+`tests/familyProjection.test.tsx` contains active assertions that classification and volume remain
+correct while those three unrotated IFC round-trip bounds remain different from the in-memory
+projection.
 
 On `brepjs-bim@0.22.0`, the first slab changes from authored bounds
 `[10021.783, 13937.579, 24746.849, 29086.096, -199.007, 242.321]` to imported bounds
@@ -92,13 +102,15 @@ same world position.
 - Supported non-default axes and pivots export correctly. Unsupported transforms fail with a
   specific error.
 - Both pitched `ApproachSlab` occurrences have matching authored and IFC round-trip world bounds.
+- Unrotated slabs and footings preserve corner and centre Datum origins without half-dimension
+  shifts.
 - The current local yaw peel, axis stamping, and rotation bake are no longer required.
 
 #### Local completion
 
 Add the Datum reproduction to #2259 or file a focused follow-up if upstream confirms a separate
 root cause. After consuming the fix, enable the pending regression and simplify
-`src/placement.ts` to target-neutral placement helpers only.
+`src/placement.ts` and `src/families/familyPlacement.ts` to target-neutral placement helpers only.
 
 ## Ready to file
 
@@ -114,8 +126,8 @@ root cause. After consuming the fix, enable the pending regression and simplify
 
 #### Problem
 
-`ArchSegment` declares Product category `member` and role `arch-segment` at
-`src/families/archSegment.tsx:26-38`. `brepjs-bim` has no `MEMBER` category, `MemberSpec`,
+`ArchSegment` declares Product category `member` and role `arch-segment`.
+`brepjs-bim` has no `MEMBER` category, `MemberSpec`,
 `addMember`, or civil Product route. Eight correctly authored arch bands therefore become
 `IfcBuildingElementProxy`. Without `proxyEvaluator`, export fails.
 
@@ -157,12 +169,12 @@ upstream release.
 
 #### Problem
 
-`BridgeNameSign` declares Product category `sign` and role `marker` at
-`src/families/bridgeNameSign.tsx:55-72`. `brepjs-bim` has no `SIGN` category, `SignSpec`,
+`BridgeNameSign` declares Product category `sign` and role `marker`. `brepjs-bim` has no `SIGN`
+category, `SignSpec`,
 `addSign`, or civil Product route. Four signs therefore become `IfcBuildingElementProxy`.
 
-The sign Body contains a plate fused with extruded font glyphs. Rebuilding its semantic envelope
-as a box would lose the lettering.
+The sign Body is now one plain authored plate, with text carried as metadata. It still falls back
+to `IfcBuildingElementProxy` because no typed Sign route exists.
 
 #### Reproduction
 
@@ -179,7 +191,7 @@ authored Body.
 - `BimCategory` includes `SIGN`, with a `SignSpec`, `addSign`, and `getSigns` path.
 - The writer emits `IfcSign` and an `IfcSignType` with `PredefinedType = PICTORAL`.
 - The Families adapter routes `sign` and `marker` without a proxy fallback.
-- The plate and glyph Body, material, stable key-path identity, and placement survive IFC
+- The plate Body, text metadata, material, stable key-path identity, and placement survive IFC
   round-trip.
 - This model exports four typed signs and no `BridgeNameSign` proxies.
 
@@ -250,12 +262,14 @@ available. See `LOCAL-003`.
 The civil Product routes synthesize typed specs from semantic envelope dimensions. This is exact
 for a rectangular Product. It is false for a compound or voided Product.
 
-`RoadRailing` authors two rails and repeated tapered posts at
-`src/families/roadRailing.tsx:86-134`. The typed route exports a solid guardrail panel. Each
-projected railing has 5.230 times the authored volume.
+`RoadRailing` authors two rails and repeated tapered posts. The typed route exports a solid
+guardrail panel. Each projected railing has 5.230 times the authored volume.
 
-`SpandrelWall` cuts paired arch openings at `src/families/spandrelWall.tsx:65-78`. The typed route
-exports a solid box. Each projected wall has 1.963 times the authored volume.
+`SpandrelWall` cuts paired arch openings. The typed route exports a solid box. Each projected wall
+has 1.963 times the authored volume.
+
+The IFC writers also move both envelope Bodies across their transverse Datum. The focused leaf
+fixture records the Body and placement losses independently.
 
 The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
 can preserve a richer parametric definition when the spec supports it.
@@ -447,6 +461,80 @@ container a false Body.
 - The author can choose the supported aggregation or nesting relationship.
 - `FACTORY` and other supported predefined types pass through the adapter.
 
+### BREP-012: Keep arbitrary Beam profile geometry consistent with IFC output
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, Beam geometry and Families adapter |
+| Kind | Bug |
+| Status | `candidate` |
+| Upstream | Not filed |
+| Last verified | 2026-08-28 |
+
+#### Problem
+
+`AbutmentSupportBeam` carries one `ARBITRARY_CLOSED` profile through the Family projection seam.
+The profile and volume survive IFC round-trip, but the eager `BimModel` geometry returned by
+`familiesToBim` swaps the section axes and sign. The model and its serialized IFC therefore
+describe different placed solids.
+
+In `tests/familyProjection.test.tsx`, the authored fixture bounds are
+`[1000, 1600, 1880, 2000, 3000, 3180]`. `placedSolids()` on the projected Beam returns
+`[1000, 1600, 2000, 2180, 3000, 3120]`. Importing the written IFC returns the authored bounds and
+the same volume.
+
+#### Expected result
+
+`beamToSolid`, the IFC profile writer, and the IFC reader must use one documented mapping from
+profile coordinates to the Beam's transverse and vertical axes.
+
+#### Work needed before filing
+
+- Reduce the failure to one `BeamSpec` with an asymmetric `ARBITRARY_CLOSED` profile.
+- Verify the coordinate convention on upstream `main` and search for an existing issue.
+- Decide whether the defect belongs in `extendedProfileToFace`, `beamToSolid`, or both.
+
+#### Acceptance criteria
+
+- Eager Beam geometry and IFC round-trip geometry have the same profile, volume, and placed bounds.
+- Positive and negative asymmetric profile coordinates retain their sign.
+- Core rectangular Beam profiles keep their current orientation.
+
+### BREP-013: Reconstruct tessellated proxy and Earthworks Fill Bodies on IFC import
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, IFC importer |
+| Kind | Bug |
+| Status | `candidate` |
+| Upstream | Not filed |
+| Last verified | 2026-08-28 |
+
+#### Problem
+
+The Families adapter preserves `ArchSegment` and `BridgeNameSign` as proxy Bodies and preserves
+`EarthFill` as a typed exact Body. The IFC writer emits tessellated representations for all three.
+`fromIfc()` imports their categories but returns `geometry.fidelity = NONE` and `solid = null` in
+the focused leaf fixture.
+
+#### Expected result
+
+Closed tessellated Bodies written by `toIfc()` should return as `TESSELLATED_MANIFOLD` solids with
+matching world bounds and volume. If a mesh is genuinely open, the importer should return
+`TESSELLATED_LOSSY` with mesh data and a specific diagnostic.
+
+#### Work needed before filing
+
+- Reduce one proxy and one Earthworks Fill case to raw IFC representations.
+- Check whether the writer output or importer traversal drops the tessellated item.
+- Verify upstream `main` and search for an existing issue.
+
+#### Acceptance criteria
+
+- Proxy and Earthworks Fill Bodies written by `toIfc()` reconstruct through `fromIfc()`.
+- Imported classification, predefined type, material, world bounds, and volume remain available.
+- The importer reports a focused diagnostic for unsupported or invalid tessellation.
+
 ## Deferred
 
 ### BREP-009: Support an IFC4X3_ADD2 schema token
@@ -563,7 +651,8 @@ in BREP-004.
 After consuming the upstream fix:
 
 - Enable the pitched `ApproachSlab` world-bounds regression.
-- Remove yaw peeling, Product axis stamping, and baked Family rotations from `src/placement.ts`.
+- Remove yaw peeling and Product axis stamping from `src/placement.ts`, plus baked Family rotations
+  from `src/families/familyPlacement.ts`.
 - Let normal Family transform validation and `familiesToBim` own transform composition.
 - Keep small target-neutral placement helpers only if the model still benefits from them.
 
@@ -605,15 +694,15 @@ the donor-only `virtual_black` material unless an included scene object uses it.
 
 ### LOCAL-009: Define and prove the reusable Family package interface
 
-The Family modules are parametric, but this repository does not yet publish a supported package
-interface. Define one explicit entry point for the Families, composable schemas, and public types
-that another brepjs project may import. Keep private kernels and project assemblies out of that
-entry point.
+The Family modules are now source-portable and document their copyable sibling dependency, but
+this repository does not yet publish a supported package interface. Define one explicit entry
+point for the Families, composable schemas, and public types that another brepjs project may
+import. Keep private kernels and project assemblies out of that entry point.
 
 Add a consumer fixture outside this model's source tree that imports every supported Family only
 through the package entry point, resolves and evaluates one occurrence, and projects the Families
-whose adapters are exact. The fixture must not import `src/placement.ts`, project set-out tables,
-assemblies, or another private repository path.
+whose adapters are exact. The fixture must not import project set-out tables, assemblies, or
+another private repository path.
 
 Document the required `brepjs`, `brepjs-families`, and `brepjs-bim` versions or peer dependency
 ranges, the millimetre unit contract, the civil-semantics dependency, and any required runtime
@@ -631,31 +720,24 @@ Acceptance criteria:
   dependency compatibility.
 - The package does not expose private kernels, CSG resources, set-out data, or exporter types.
 
-### LOCAL-010: Decide the portable contract for BridgeNameSign
+### LOCAL-010: Remove the project font from BridgeNameSign
 
-`BridgeNameSign` is parametric only within the bundled project's six-glyph block font. It imports
-project-owned font registration, hard-codes font metrics, accepts only `B`, `R`, `E`, `P`, `J`,
-and `S`, and requires the caller to register the font before evaluation.
+The project font, font loader, and glyph-outline kernel were removed on 2026-08-28 by explicit
+scope decision. `BridgeNameSign` keeps its existing JSX props, normalizes arbitrary non-empty text
+to uppercase metadata, and authors one plain plate with depth `plateDepth + reliefDepth`. It has no
+asset initialization or project module dependency.
 
-Choose one honest package contract:
-
-- keep `BridgeNameSign` project-specific and exclude it from the reusable entry point; or
-- introduce a target-neutral font or glyph-outline contract owned by the downstream Family
-  package, with explicit initialization and resource ownership.
-
-Do not expose brepjs `Blueprint`, contour, or disposable font handles at the Family invocation
-seam. BREP-003 remains responsible for typed `IfcSign` classification and exact Body projection;
-this issue covers reuse and runtime dependencies only.
+BREP-003 remains responsible for typed `IfcSign` classification. BREP-013 tracks the current IFC
+reader failure to reconstruct the proxy Body.
 
 Acceptance criteria:
 
-- The reusable package either excludes the current sign or supports a documented portable font
-  contract.
-- Supported glyphs, text fitting, font loading, failure modes, and resource ownership are
-  explicit.
-- A clean consumer process can evaluate a sign without relying on initialization performed by
-  this model's test suite or entry point.
-- The plate and lettering remain one exact authored Body.
+- The sign source has no project asset or font dependency. Implemented.
+- Text metadata normalization and the plain-plate topology are documented. Implemented.
+- A clean process can evaluate the sign after normal `brepjs` initialization. Implemented in the
+  focused Family tests; a published consumer fixture remains under LOCAL-009.
+- The plain plate remains one exact authored Body before projection. Typed Sign classification and
+  proxy import reconstruction remain upstream gaps.
 
 ### LOCAL-011: State and validate each Family's parametric topology
 
@@ -664,11 +746,9 @@ and one six-point post profile. `SpandrelWall` always creates paired elliptical 
 `ArchSegment` and `EarthFill` use fixed curve constructions. These are valid parametric modules,
 but they are not arbitrary railing, wall, arch, or earthworks generators.
 
-Document each supported topology and identify relational inputs that can produce degenerate or
-misleading geometry. At minimum, review arch inner-versus-outer curves, spandrel opening size
-against bay width and wall height, railing run-in and run-out against length, and deck inset
-meaning. Preserve the current accepted input during documentation. Add relational validation only
-as an approved interface change with migration notes and tests.
+`src/families/README.md` now documents every fixed topology, axes, Datum, runtime contract,
+performance control, and accepted relational gap. The focused tests cover curve sampling,
+handedness, repetition, profiles, cuts, and placement without tightening current accepted input.
 
 Acceptance criteria:
 

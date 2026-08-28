@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const railPierStemProps = z.object({
+/** Complete invocation schema for one rectangular rail-pier stem, in millimetres. */
+export const railPierStemProps = z.object({
   longitudinalWidth: z.number().positive(),
   transverseLength: z.number().positive(),
   height: z.number().positive(),

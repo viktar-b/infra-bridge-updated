@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const spandrelWallProps = z.object({
+/** Complete invocation schema for a wall with paired arch cuts in each bay, in millimetres. */
+export const spandrelWallProps = z.object({
   length: z.number().positive(),
   thickness: z.number().positive(),
   height: z.number().positive(),

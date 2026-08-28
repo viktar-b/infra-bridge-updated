@@ -31,6 +31,23 @@ describe('authored-source cleanliness', () => {
     expect(violations).toEqual([]);
   });
 
+  it('keeps leaf Family source independent of project modules and assets', async () => {
+    const familyRoot = new URL('../src/families/', import.meta.url);
+    const violations: string[] = [];
+    for (const file of await sourceFiles(familyRoot.pathname)) {
+      const source = await readFile(file, 'utf8');
+      for (const match of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+        const dependency = match[1];
+        if (dependency === undefined) continue;
+        if (dependency.startsWith('../')) violations.push(`${file}: ${dependency}`);
+        if (dependency.startsWith('./') && dependency !== './familyPlacement.ts') {
+          violations.push(`${file}: ${dependency}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('contains no donor identity, geometry, path, inventory, or harness dependency', async () => {
     const projectRoot = new URL('../', import.meta.url);
     const sourceRoot = new URL('../src/', import.meta.url);

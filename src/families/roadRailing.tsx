@@ -3,8 +3,9 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
+/** Reusable six-point railing-post profile schema, in millimetres. */
 export const roadRailingPostProfileSchema = z.object({
   toeWidth: z.number().positive(),
   toeBase: z.number(),
@@ -16,7 +17,11 @@ export const roadRailingPostProfileSchema = z.object({
   capWidth: z.number().positive(),
 });
 
-const roadRailingProps = z.object({
+export type RoadRailingPostProfile = z.output<typeof roadRailingPostProfileSchema>;
+export type RoadRailingPostProfileInput = z.input<typeof roadRailingPostProfileSchema>;
+
+/** Complete invocation schema for two rails and a repeated six-point post profile. */
+export const roadRailingProps = z.object({
   length: z.number().positive(),
   setoutInset: z.number().nonnegative(),
   longitudinalSide: z.enum(['positive', 'negative']),

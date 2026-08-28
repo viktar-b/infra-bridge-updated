@@ -15,7 +15,6 @@ import { RoadPier } from '../src/assemblies/roadPier.tsx';
 import { RoadSite } from '../src/assemblies/roadSite.tsx';
 import { RoadSuperstructure } from '../src/assemblies/roadSuperstructure.tsx';
 import { MATERIALS } from '../src/materials.ts';
-import { loadProjectFont } from '../src/fonts/projectFont.ts';
 import { RAIL_BRIDGE_SET_OUT, ROAD_BRIDGE_SET_OUT } from '../src/setout.ts';
 
 const roadPierDimensions = {
@@ -53,7 +52,6 @@ const railSuperstructureDimensions = {
 
 beforeAll(async () => {
   await init();
-  await loadProjectFont();
 }, 120_000);
 
 describe('owned infrastructure Assemblies', () => {

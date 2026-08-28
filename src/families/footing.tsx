@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const footingProps = z.object({
+/** Complete invocation schema for one rectangular pad footing, in millimetres. */
+export const footingProps = z.object({
   length: z.number().positive(),
   width: z.number().positive(),
   thickness: z.number().positive(),

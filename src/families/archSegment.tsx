@@ -3,9 +3,10 @@
 import { csg } from 'brepjs';
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { placedGeometry, transformProp } from '../placement.ts';
+import { placedGeometry, transformProp } from './familyPlacement.ts';
 
-const archSegmentProps = z.object({
+/** Complete invocation schema for one sampled quarter-arch band, in millimetres. */
+export const archSegmentProps = z.object({
   outerRun: z.number().positive(),
   outerRise: z.number().positive(),
   innerRun: z.number().positive(),

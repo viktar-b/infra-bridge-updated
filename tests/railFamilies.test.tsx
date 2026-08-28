@@ -4,16 +4,14 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { csg, getBounds, init, isShape3D, measureVolume, unwrap } from 'brepjs';
 import { evaluateModel, resolve, type ResolvedElement } from 'brepjs-families';
 import { ArchSegment } from '../src/families/archSegment.tsx';
-import { BridgeNameSign, PROJECT_SIGN_FONT } from '../src/families/bridgeNameSign.tsx';
+import { BridgeNameSign } from '../src/families/bridgeNameSign.tsx';
 import { EarthFill } from '../src/families/earthFill.tsx';
 import { RailPierStem } from '../src/families/railPierStem.tsx';
 import { SpandrelWall } from '../src/families/spandrelWall.tsx';
 import { MATERIALS } from '../src/materials.ts';
-import { loadProjectFont } from '../src/fonts/projectFont.ts';
 
 beforeAll(async () => {
   await init();
-  await loadProjectFont();
 }, 120_000);
 
 describe('rail-arch bridge Families', () => {
@@ -38,6 +36,24 @@ describe('rail-arch bridge Families', () => {
     expect(evaluatedVolume(resolved)).toBeLessThan(10_000 * 3_500 * 4_084.236);
   });
 
+  it('uses curveSegments as the EarthFill crown sampling control', () => {
+    const resolved = resolve(
+      <EarthFill
+        key="fill"
+        halfSpan={5_000}
+        halfWidth={1_750}
+        crownRise={4_084.236}
+        curveSegments={8}
+        material={MATERIALS.genericSoil}
+      />
+    );
+    expect(resolved.geometry.kind).toBe('Extrude');
+    if (resolved.geometry.kind !== 'Extrude') return;
+    expect(resolved.geometry.profile.kind).toBe('Polygon');
+    if (resolved.geometry.profile.kind !== 'Polygon') return;
+    expect(resolved.geometry.profile.points).toHaveLength(17);
+  });
+
   it('authors one reusable curved ArchSegment with named outer and inner controls', () => {
     const resolved = resolve(
       <ArchSegment
@@ -60,6 +76,27 @@ describe('rail-arch bridge Families', () => {
     });
     expectBounds(resolved, [-750, 4_250, -1_750, 1_750, 0, 4_084.236]);
     expect(evaluatedVolume(resolved)).toBeLessThan(5_000 * 3_500 * 4_084.236);
+  });
+
+  it('uses curveSegments for both ArchSegment boundary curves', () => {
+    const resolved = resolve(
+      <ArchSegment
+        key="arch"
+        outerRun={5_000}
+        outerRise={4_084.236}
+        innerRun={4_250}
+        innerRise={3_333.333}
+        bandThickness={750}
+        halfWidth={1_750}
+        curveSegments={8}
+        material={MATERIALS.graniteMasonry}
+      />
+    );
+    expect(resolved.geometry.kind).toBe('Extrude');
+    if (resolved.geometry.kind !== 'Extrude') return;
+    expect(resolved.geometry.profile.kind).toBe('Polygon');
+    if (resolved.geometry.profile.kind !== 'Polygon') return;
+    expect(resolved.geometry.profile.points).toHaveLength(18);
   });
 
   it('authors the regular two-bay SpandrelWall as a closed cut solid', () => {
@@ -87,6 +124,32 @@ describe('rail-arch bridge Families', () => {
     expect(evaluatedVolume(resolved)).toBeLessThan(20_000 * 450 * 4_484.236);
   });
 
+  it('cuts two arch tools for every SpandrelWall bay', () => {
+    const resolved = resolve(
+      <SpandrelWall
+        key="wall"
+        length={24_000}
+        thickness={450}
+        height={4_484.236}
+        bayCount={3}
+        openingRun={3_000}
+        openingRise={3_000}
+        curveSegments={8}
+        material={MATERIALS.graniteMasonry}
+      />
+    );
+    expect(resolved.geometry.kind).toBe('CutAll');
+    if (resolved.geometry.kind !== 'CutAll') return;
+    expect(resolved.geometry.tools).toHaveLength(6);
+    for (const tool of resolved.geometry.tools) {
+      expect(tool.kind).toBe('Extrude');
+      if (tool.kind !== 'Extrude') continue;
+      expect(tool.profile.kind).toBe('Polygon');
+      if (tool.profile.kind === 'Polygon') expect(tool.profile.points).toHaveLength(10);
+    }
+    expect(evaluatedVolume(resolved)).toBeLessThan(24_000 * 450 * 4_484.236);
+  });
+
   it('authors the masonry RailPierStem from its lower Datum', () => {
     const resolved = resolve(
       <RailPierStem
@@ -107,7 +170,7 @@ describe('rail-arch bridge Families', () => {
     expectBounds(resolved, [-750, 750, 0, 4_400, 0, 3_780.346]);
   });
 
-  it('authors a backed BridgeNameSign with declared visible block lettering', () => {
+  it('authors a plain BridgeNameSign plate with normalized text metadata', () => {
     const resolved = resolve(
       <BridgeNameSign
         key="sign"
@@ -126,37 +189,28 @@ describe('rail-arch bridge Families', () => {
       dimensionsMm: { length: 1_600, width: 50, height: 400 },
       properties: {
         text: 'BREPJS',
-        font: PROJECT_SIGN_FONT.family,
+        textRepresentation: 'metadata-only',
       },
     });
-    expect(resolved.geometry.kind).toBe('Fuse');
+    expect(resolved.geometry.kind).toBe('Translate');
     expectBounds(resolved, [-800, 800, -50, 0, 0, 400]);
-    expect(evaluatedVolume(resolved)).toBeGreaterThan(1_600 * 30 * 400);
+    expect(evaluatedVolume(resolved)).toBeCloseTo(1_600 * 50 * 400, 3);
   });
 
-  it('rejects sign text that the declared block font cannot render or fit', () => {
-    expect(() => (
+  it('accepts arbitrary non-empty sign text without a font asset', () => {
+    const resolved = resolve(
       <BridgeNameSign
-        key="unsupported"
-        text="BRIDGE"
-        width={1_600}
-        height={400}
-        plateDepth={30}
-        reliefDepth={20}
-        material={MATERIALS.copper}
-      />
-    )).toThrow(/invalid props for family 'BridgeNameSign'/);
-    expect(() => (
-      <BridgeNameSign
-        key="overflow"
-        text="BREPJS"
+        key="sign"
+        text=" Bridge 42 "
         width={1_000}
-        height={400}
-        plateDepth={30}
-        reliefDepth={20}
+        height={200}
+        plateDepth={20}
+        reliefDepth={10}
         material={MATERIALS.copper}
       />
-    )).toThrow(/invalid props for family 'BridgeNameSign'/);
+    );
+    expect(resolved.props['text']).toBe('BRIDGE 42');
+    expect(resolved.semantics?.properties?.['text']).toBe('BRIDGE 42');
   });
 });
 
