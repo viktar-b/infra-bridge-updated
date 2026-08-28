@@ -1,9 +1,17 @@
 /** @jsxImportSource brepjs-families */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { csg, init, unwrap } from 'brepjs';
-import { familiesToBim, toIfc } from 'brepjs-bim';
-import { civilSemantics, el, family, resolve, tTranslate, type ResolvedElement } from 'brepjs-families';
+import { csg, init, isShape3D, measureVolume, unwrap } from 'brepjs';
+import { disposeImportedModel, familiesToBim, fromIfc, toIfc } from 'brepjs-bim';
+import {
+  civilSemantics,
+  el,
+  evaluateModel,
+  family,
+  resolve,
+  tTranslate,
+  type ResolvedElement,
+} from 'brepjs-families';
 import { Footing } from '../src/families/footing.tsx';
 import { MATERIALS } from '../src/materials.ts';
 import { buildInfraBridge } from '../src/main.tsx';
@@ -161,6 +169,94 @@ describe('complete declarative infrastructure bridge model', () => {
       })
     );
     expect(bytes.byteLength).toBeGreaterThan(10_000);
+  }, 60_000);
+
+  it('preserves both signed abutment-support profiles through typed BIM projection', async () => {
+    const root = resolve(await buildInfraBridge());
+    const supportBeams = flatten(root).filter(({ type }) => type === 'AbutmentSupportBeam');
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(supportBeams).toHaveLength(2);
+    const profiles: unknown[] = [];
+    const projectedBeams: Array<{ readonly guid: string; readonly volumeMm3: number }> = [];
+    for (const supportBeam of supportBeams) {
+      const localId = projected.idByKeyPath.get(supportBeam.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const beam = bim.getElement(localId);
+      expect(beam?.category).toBe('BEAM');
+      if (beam?.category !== 'BEAM') continue;
+      profiles.push(beam.spec.profile);
+      expect(beam.spec.profile).toEqual(supportBeam.props['profile']);
+      expect(beam.spec.origin).toEqual([0, 0, 0]);
+
+      const authoredShape = evaluated.byKeyPath.get(supportBeam.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok) continue;
+      expect(isShape3D(authoredShape.value)).toBe(true);
+      if (!isShape3D(authoredShape.value)) continue;
+      const projectedVolume = unwrap(measureVolume(beam.geometry));
+      expect(projectedVolume).toBeCloseTo(unwrap(measureVolume(authoredShape.value)), 3);
+      projectedBeams.push({ guid: beam.guid, volumeMm3: projectedVolume });
+    }
+
+    expect(profiles).toEqual([
+      {
+        kind: 'ARBITRARY_CLOSED',
+        points: [
+          [0, 0],
+          [-195, 0],
+          [-175, 20],
+          [-175, 556.993],
+          [0, 539.493],
+        ],
+      },
+      {
+        kind: 'ARBITRARY_CLOSED',
+        points: [
+          [0, 0],
+          [195, 0],
+          [175, 20],
+          [175, 556.993],
+          [0, 539.493],
+        ],
+      },
+    ]);
+
+    const bytes = unwrap(
+      await toIfc(bim, {
+        applicationName: 'infra-bridge',
+        applicationVersion: '0',
+        ifcSchema: 'IFC4X3',
+      })
+    );
+    const imported = unwrap(await fromIfc(bytes));
+    try {
+      expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
+      for (const expected of projectedBeams) {
+        const beam = imported.elements.find(({ guid }) => guid === expected.guid);
+        expect(beam?.category).toBe('BEAM');
+        expect(beam?.geometry.fidelity).toBe('PARAMETRIC');
+        if (beam === undefined) continue;
+        const solid = beam.geometry.solid;
+        expect(solid).not.toBeNull();
+        if (solid === null) continue;
+        expect(unwrap(measureVolume(solid))).toBeCloseTo(expected.volumeMm3, 3);
+        const quantities = beam.psets.find(({ name }) => name === 'Qto_BeamBaseQuantities');
+        expect(quantities?.properties['NetVolume']).toBeCloseTo(expected.volumeMm3 / 1e9, 9);
+      }
+    } finally {
+      disposeImportedModel(imported);
+    }
   }, 60_000);
 
   it('exports a translation-only civil tree through familiesToBim', async () => {

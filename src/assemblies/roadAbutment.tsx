@@ -2,16 +2,16 @@
 
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { AbutmentSupportBeam } from '../families/abutmentSupportBeam.tsx';
+import {
+  AbutmentSupportBeam,
+  abutmentSupportBeamSectionProps,
+} from '../families/abutmentSupportBeam.tsx';
 import { spatialGroup, transformProp } from '../placement.ts';
 
 const roadAbutmentProps = z.object({
   transverseSide: z.enum(['positive', 'negative']),
   length: z.number().positive(),
-  width: z.number().positive(),
-  bearingInset: z.number().positive(),
-  bearingSeatHeight: z.number().positive(),
-  backHeight: z.number().positive(),
+  section: abutmentSupportBeamSectionProps,
   material: z.string().trim().min(1),
   name: z.string().trim().min(1).default('Road bridge abutment'),
   transform: transformProp,
@@ -34,15 +34,12 @@ function semantics(props: RoadAbutmentProps) {
 /** Road abutment BridgePart around the lower support-beam Datum. */
 export const RoadAbutment = family<RoadAbutmentProps, RoadAbutmentInput>(
   'RoadAbutment',
-  ({ transverseSide, length, width, bearingInset, bearingSeatHeight, backHeight, material, transform }) =>
+  ({ transverseSide, length, section, material, transform }) =>
     spatialGroup(transform, [
       <AbutmentSupportBeam
         key="abutment-support-beam"
         length={length}
-        width={width}
-        bearingInset={bearingInset}
-        bearingSeatHeight={bearingSeatHeight}
-        backHeight={backHeight}
+        section={section}
         transverseSide={transverseSide}
         material={material}
         name="Road river bridge - abutment support beam"

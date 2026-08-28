@@ -31,10 +31,13 @@ export const ROAD_BRIDGE_SET_OUT = {
   },
   abutment: {
     length: 3_600,
-    width: 195,
-    bearingInset: 20,
-    bearingSeatHeight: 556.993,
-    backHeight: 539.493,
+    section: {
+      width: 195,
+      toeInset: 20,
+      toeHeight: 20,
+      bearingSeatHeight: 556.993,
+      backHeight: 539.493,
+    },
   },
   piers: {
     occurrences: [

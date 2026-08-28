@@ -64,10 +64,7 @@ export const RoadApproach = family<RoadApproachProps, RoadApproachInput>(
         ])}
         transverseSide={structuralSide}
         length={ROAD_BRIDGE_SET_OUT.abutment.length}
-        width={ROAD_BRIDGE_SET_OUT.abutment.width}
-        bearingInset={ROAD_BRIDGE_SET_OUT.abutment.bearingInset}
-        bearingSeatHeight={ROAD_BRIDGE_SET_OUT.abutment.bearingSeatHeight}
-        backHeight={ROAD_BRIDGE_SET_OUT.abutment.backHeight}
+        section={ROAD_BRIDGE_SET_OUT.abutment.section}
         material={MATERIALS.reinforcedConcrete}
       />,
     ]);

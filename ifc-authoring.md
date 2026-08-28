@@ -85,14 +85,16 @@ Related writer bug: `writeBeamEntity` (and slab/column) take `_predefinedType` a
 
 ### 1.5 Exact body for compound typed products
 
-The civil product routes rebuild from `dimensionsMm`:
+The civil product routes synthesize their specs from family semantics. By default, that means rebuilding from `dimensionsMm`:
 
 ```
 beam / column / footing / slab / wall / railing
   → RECTANGULAR profile + IfcExtrudedAreaSolid
 ```
 
-Exact kernel preservation in this profile is **only** Earthworks Fill (and proxy). That is why:
+The beam route also honours a family-supplied profile. `AbutmentSupportBeam` uses that seam to send its signed five-point `ARBITRARY_CLOSED` section to `BeamSpec`, so its viewport and IFC solids now match without falling back to tessellation.
+
+Exact kernel preservation in this profile is **only** Earthworks Fill (and proxy). Compound products without a suitable typed spec still lose their authored shape. That is why:
 
 - `RoadRailing` (posts + two rails) becomes a guardrail **panel**
 - `SpandrelWall` (elliptical arch openings) becomes a **box**
@@ -203,6 +205,7 @@ Donor sites: one COMPLEX environment + PARTIAL children. Ours: three ELEMENT tra
 | Product | Donor body | 0.22 export | Target |
 | --- | --- | --- | --- |
 | Girders, stems, pads, slabs, simple walls | Tessellation | SweptSolid rectangle | **Keep SweptSolid** |
+| Abutment support beams | Tessellation | SweptSolid five-point profile | **Keep exact typed profile** |
 | Earthworks fill | Tessellation | Exact tessellation | Keep exact |
 | Arch member, sign | Tessellation | Proxy tessellation | Typed class + exact body |
 | Posted railing, voided spandrel | Tessellation | Envelope SweptSolid | Exact body or posted/voided spec |

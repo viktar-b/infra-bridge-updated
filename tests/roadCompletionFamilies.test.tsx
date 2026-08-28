@@ -42,10 +42,13 @@ describe('completed road-bridge Families', () => {
       <AbutmentSupportBeam
         key="beam"
         length={3_600}
-        width={195}
-        bearingInset={20}
-        bearingSeatHeight={556.993}
-        backHeight={539.493}
+        section={{
+          width: 195,
+          toeInset: 20,
+          toeHeight: 20,
+          bearingSeatHeight: 556.993,
+          backHeight: 539.493,
+        }}
         transverseSide="negative"
         material={MATERIALS.reinforcedConcrete}
       />
@@ -57,6 +60,95 @@ describe('completed road-bridge Families', () => {
       dimensionsMm: { length: 3_600, width: 195, height: 556.993 },
     });
     expectBounds(resolved, [0, 3_600, -195, 0, 0, 556.993]);
+  });
+
+  it('mirrors the AbutmentSupportBeam section without moving its Datum', () => {
+    const resolved = resolve(
+      <AbutmentSupportBeam
+        key="beam"
+        length={3_600}
+        section={{
+          width: 195,
+          toeInset: 20,
+          toeHeight: 20,
+          bearingSeatHeight: 556.993,
+          backHeight: 539.493,
+        }}
+        transverseSide="positive"
+        material={MATERIALS.reinforcedConcrete}
+      />
+    );
+    expectBounds(resolved, [0, 3_600, 0, 195, 0, 556.993]);
+  });
+
+  it('derives the profile and envelope from independent toe controls', () => {
+    const resolved = resolve(
+      <AbutmentSupportBeam
+        key="beam"
+        length={100}
+        section={{
+          width: 50,
+          toeInset: 8,
+          toeHeight: 3,
+          bearingSeatHeight: 40,
+          backHeight: 60,
+        }}
+        transverseSide="positive"
+        material={MATERIALS.reinforcedConcrete}
+      />
+    );
+
+    expect(resolved.props['profile']).toEqual({
+      kind: 'ARBITRARY_CLOSED',
+      points: [
+        [0, 0],
+        [50, 0],
+        [42, 3],
+        [42, 40],
+        [0, 60],
+      ],
+    });
+    expect(resolved.semantics).toMatchObject({
+      dimensionsMm: { length: 100, width: 50, height: 60 },
+    });
+    expectBounds(resolved, [0, 100, 0, 50, 0, 60]);
+  });
+
+  it.each([
+    {
+      label: 'a toe inset equal to the section width',
+      section: {
+        width: 20,
+        toeInset: 20,
+        toeHeight: 5,
+        bearingSeatHeight: 40,
+        backHeight: 30,
+      },
+      message: 'toeInset must be less than width',
+    },
+    {
+      label: 'a toe height equal to the bearing-seat height',
+      section: {
+        width: 20,
+        toeInset: 5,
+        toeHeight: 40,
+        bearingSeatHeight: 40,
+        backHeight: 30,
+      },
+      message: 'toeHeight must be less than bearingSeatHeight',
+    },
+  ])('rejects $label before kernel evaluation', ({ section, message }) => {
+    expect(() =>
+      resolve(
+        <AbutmentSupportBeam
+          key="invalid"
+          length={100}
+          section={section}
+          transverseSide="positive"
+          material={MATERIALS.reinforcedConcrete}
+        />
+      )
+    ).toThrow(message);
   });
 
   it('authors a reusable repeated-post RoadRailing with a deck-edge Datum', () => {
