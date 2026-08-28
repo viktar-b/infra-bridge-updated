@@ -40,6 +40,26 @@ interface ArbitraryClosedProfile {
   readonly points: readonly SectionPoint[];
 }
 
+function sectionProfile(
+  section: AbutmentSupportBeamSection,
+  transverseSide: 'positive' | 'negative'
+): ArbitraryClosedProfile {
+  const { width, toeInset, toeHeight, bearingSeatHeight, backHeight } = section;
+  const direction = transverseSide === 'positive' ? 1 : -1;
+  const transverse = (distance: number) => direction * distance;
+  const shoulder = width - toeInset;
+  return {
+    kind: 'ARBITRARY_CLOSED',
+    points: [
+      [0, 0],
+      [transverse(width), 0],
+      [transverse(shoulder), toeHeight],
+      [transverse(shoulder), bearingSeatHeight],
+      [0, backHeight],
+    ],
+  };
+}
+
 const abutmentSupportBeamProps = z.object({
   length: z.number().positive(),
   section: abutmentSupportBeamSectionProps,
@@ -49,14 +69,14 @@ const abutmentSupportBeamProps = z.object({
   transform: transformProp,
 }).transform((props) => ({
   ...props,
-  // The validated output carries the exact section through the families-to-BIM seam.
+  // Carry one exact section across the Family projection seam so the kernel and adapters agree.
   profile: sectionProfile(props.section, props.transverseSide),
 }));
 
 export type AbutmentSupportBeamProps = z.output<typeof abutmentSupportBeamProps>;
 export type AbutmentSupportBeamInput = z.input<typeof abutmentSupportBeamProps>;
 
-type AbutmentSupportBeamGeometryProps = Pick<
+type AbutmentSupportBeamKernelProps = Pick<
   AbutmentSupportBeamProps,
   'length' | 'profile' | 'transform'
 >;
@@ -73,8 +93,8 @@ function semantics(props: AbutmentSupportBeamProps) {
   });
 }
 
-const AbutmentSupportBeamGeometry = family<AbutmentSupportBeamGeometryProps>(
-  'AbutmentSupportBeamGeometry',
+const AbutmentSupportBeamKernel = family<AbutmentSupportBeamKernelProps>(
+  'AbutmentSupportBeamKernel',
   ({ length, profile, transform }) => {
     const face = csg.polygon(
       profile.points.map(
@@ -90,25 +110,7 @@ const AbutmentSupportBeamGeometry = family<AbutmentSupportBeamGeometryProps>(
 export const AbutmentSupportBeam = family<AbutmentSupportBeamProps, AbutmentSupportBeamInput>(
   'AbutmentSupportBeam',
   ({ length, profile, transform }) => (
-    <AbutmentSupportBeamGeometry length={length} profile={profile} transform={transform} />
+    <AbutmentSupportBeamKernel length={length} profile={profile} transform={transform} />
   ),
   { props: abutmentSupportBeamProps, semantics }
 );
-
-function sectionProfile(
-  section: AbutmentSupportBeamSection,
-  transverseSide: 'positive' | 'negative'
-): ArbitraryClosedProfile {
-  const side = transverseSide === 'positive' ? 1 : -1;
-  const shoulder = section.width - section.toeInset;
-  return {
-    kind: 'ARBITRARY_CLOSED',
-    points: [
-      [0, 0],
-      [side * section.width, 0],
-      [side * shoulder, section.toeHeight],
-      [side * shoulder, section.bearingSeatHeight],
-      [0, section.backHeight],
-    ],
-  };
-}
