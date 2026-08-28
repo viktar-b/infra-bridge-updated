@@ -56,6 +56,11 @@ const abutmentSupportBeamProps = z.object({
 export type AbutmentSupportBeamProps = z.output<typeof abutmentSupportBeamProps>;
 export type AbutmentSupportBeamInput = z.input<typeof abutmentSupportBeamProps>;
 
+type AbutmentSupportBeamGeometryProps = Pick<
+  AbutmentSupportBeamProps,
+  'length' | 'profile' | 'transform'
+>;
+
 function semantics(props: AbutmentSupportBeamProps) {
   const { width, bearingSeatHeight, backHeight } = props.section;
   return civilSemantics({
@@ -68,9 +73,8 @@ function semantics(props: AbutmentSupportBeamProps) {
   });
 }
 
-/** Five-point bearing-seat profile extruded along the beam member axis. */
-export const AbutmentSupportBeam = family<AbutmentSupportBeamProps, AbutmentSupportBeamInput>(
-  'AbutmentSupportBeam',
+const AbutmentSupportBeamGeometry = family<AbutmentSupportBeamGeometryProps>(
+  'AbutmentSupportBeamGeometry',
   ({ length, profile, transform }) => {
     const face = csg.polygon(
       profile.points.map(
@@ -79,7 +83,15 @@ export const AbutmentSupportBeam = family<AbutmentSupportBeamProps, AbutmentSupp
       )
     );
     return placedGeometry(csg.extrude(face, [length, 0, 0]), transform);
-  },
+  }
+);
+
+/** Five-point bearing-seat profile extruded along the beam member axis. */
+export const AbutmentSupportBeam = family<AbutmentSupportBeamProps, AbutmentSupportBeamInput>(
+  'AbutmentSupportBeam',
+  ({ length, profile, transform }) => (
+    <AbutmentSupportBeamGeometry length={length} profile={profile} transform={transform} />
+  ),
   { props: abutmentSupportBeamProps, semantics }
 );
 

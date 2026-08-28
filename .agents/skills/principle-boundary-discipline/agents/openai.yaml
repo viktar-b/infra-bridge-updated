@@ -1,0 +1,5 @@
+interface:
+  display_name: "Principle Boundary Discipline"
+  short_description: "Explicit pstack workflow: Principle Boundary Discipline"
+policy:
+  allow_implicit_invocation: false
