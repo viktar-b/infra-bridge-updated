@@ -23,3 +23,17 @@ Parametric building model on brepjs. Units are mm end to end.
 - Kernel handles: `using evaluator = new csg.Evaluator()` owns evaluated meshes/shapes; never dispose borrowed handles.
 - Imports use explicit extensions (`../src/main.tsx`); tsconfig sets `jsx: react-jsx` + `jsxImportSource: brepjs-families`.
 - Geometry sanity: prefer `expect(node.mesh.ok)` per element over deep mesh assertions.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as Markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage states use the five default canonical role strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses the single-context domain-doc layout. See `docs/agents/domain.md`.
