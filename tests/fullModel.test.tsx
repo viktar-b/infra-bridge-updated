@@ -121,6 +121,7 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(nodes.filter(({ semantics }) => semantics?.kind === 'facility')).toHaveLength(3);
     expect(nodes.filter(({ semantics }) => semantics?.kind === 'spatial-part')).toHaveLength(18);
     expect(productNodes(nodes)).toHaveLength(47);
+    expect(nodes.some(({ type }) => type.endsWith('Kernel'))).toBe(false);
 
     const railBridges = nodes.filter(({ semantics }) => semantics?.kind === 'facility').slice(1);
     expect(railBridges.map(({ type }) => type)).toEqual(['RailArchBridge', 'RailArchBridge']);
@@ -334,6 +335,62 @@ describe('complete declarative infrastructure bridge model', () => {
       disposeImportedModel(imported);
     }
   }, 60_000);
+
+  it('preserves every remaining exact Family body through BIM projection', async () => {
+    const expectedCategories = new Map<string, string>([
+      ['ArchSegment', 'PROXY'],
+      ['BridgeDeck', 'SLAB'],
+      ['BridgeNameSign', 'PROXY'],
+      ['CrossGirder', 'BEAM'],
+      ['EarthFill', 'EARTHWORKS_FILL'],
+      ['Footing', 'FOOTING'],
+      ['MainGirder', 'BEAM'],
+      ['PierStem', 'COLUMN'],
+      ['RailPierStem', 'COLUMN'],
+    ]);
+    const root = resolve(await buildInfraBridge());
+    const exactFamilies = flatten(root).filter(({ type }) => expectedCategories.has(type));
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(exactFamilies).toHaveLength(37);
+    for (const familyElement of exactFamilies) {
+      const localId = projected.idByKeyPath.get(familyElement.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const projectedElement = bim.getElement(localId);
+      expect(projectedElement?.category).toBe(expectedCategories.get(familyElement.type));
+      if (projectedElement === undefined || projectedElement === null) continue;
+      if (projectedElement.category === 'CURTAIN_WALL') continue;
+
+      const authoredShape = evaluated.byKeyPath.get(familyElement.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok || !isShape3D(authoredShape.value)) {
+        continue;
+      }
+      const projectedGeometry = projectedElement.geometry;
+      expect(projectedGeometry).not.toBeNull();
+      if (projectedGeometry === null) continue;
+      expect(isShape3D(projectedGeometry)).toBe(true);
+      if (!isShape3D(projectedGeometry)) continue;
+      expect(unwrap(measureVolume(projectedGeometry))).toBeCloseTo(
+        unwrap(measureVolume(authoredShape.value)),
+        3
+      );
+    }
+  }, 60_000);
+
+  it.todo('preserves the posted RoadRailing body through typed BIM projection');
+
+  it.todo('preserves the opened SpandrelWall body through typed BIM projection');
 
   it('exports a translation-only civil tree through familiesToBim', async () => {
     const AxisAlignedBridgePart = family(

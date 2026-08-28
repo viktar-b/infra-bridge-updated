@@ -1,7 +1,7 @@
 /** @jsxImportSource brepjs-families */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { csg, getBounds, init } from 'brepjs';
+import { csg, getBounds, init, isShape3D, measureVolume, unwrap } from 'brepjs';
 import { evaluateModel, resolve, type ResolvedElement } from 'brepjs-families';
 import { ArchSegment } from '../src/families/archSegment.tsx';
 import { BridgeNameSign, PROJECT_SIGN_FONT } from '../src/families/bridgeNameSign.tsx';
@@ -35,6 +35,7 @@ describe('rail-arch bridge Families', () => {
       properties: { profile: 'cubic-crown' },
     });
     expectBounds(resolved, [-5_000, 5_000, -1_750, 1_750, 0, 4_084.236]);
+    expect(evaluatedVolume(resolved)).toBeLessThan(10_000 * 3_500 * 4_084.236);
   });
 
   it('authors one reusable curved ArchSegment with named outer and inner controls', () => {
@@ -58,6 +59,7 @@ describe('rail-arch bridge Families', () => {
       dimensionsMm: { length: 5_000, width: 3_500, height: 4_084.236 },
     });
     expectBounds(resolved, [-750, 4_250, -1_750, 1_750, 0, 4_084.236]);
+    expect(evaluatedVolume(resolved)).toBeLessThan(5_000 * 3_500 * 4_084.236);
   });
 
   it('authors the regular two-bay SpandrelWall as a closed cut solid', () => {
@@ -79,7 +81,10 @@ describe('rail-arch bridge Families', () => {
       material: MATERIALS.graniteMasonry,
       dimensionsMm: { length: 20_000, width: 450, height: 4_484.236 },
     });
+    expect(resolved.geometry.kind).toBe('CutAll');
+    if (resolved.geometry.kind === 'CutAll') expect(resolved.geometry.tools).toHaveLength(4);
     expectBounds(resolved, [0, 20_000, 0, 450, 0, 4_484.236]);
+    expect(evaluatedVolume(resolved)).toBeLessThan(20_000 * 450 * 4_484.236);
   });
 
   it('authors the masonry RailPierStem from its lower Datum', () => {
@@ -126,6 +131,7 @@ describe('rail-arch bridge Families', () => {
     });
     expect(resolved.geometry.kind).toBe('Fuse');
     expectBounds(resolved, [-800, 800, -50, 0, 0, 400]);
+    expect(evaluatedVolume(resolved)).toBeGreaterThan(1_600 * 30 * 400);
   });
 
   it('rejects sign text that the declared block font cannot render or fit', () => {
@@ -165,4 +171,13 @@ function expectBounds(resolved: ResolvedElement, expected: readonly number[]): v
   expected.forEach((value, index) => {
     expect(actual[index]).toBeCloseTo(value, 3);
   });
+}
+
+function evaluatedVolume(resolved: ResolvedElement): number {
+  using evaluator = new csg.Evaluator();
+  const evaluated = evaluateModel(resolved, evaluator, {}, { shapes: true });
+  const shape = evaluated.byKeyPath.get(resolved.keyPath)?.shape;
+  expect(shape?.ok).toBe(true);
+  if (shape === undefined || !shape.ok || !isShape3D(shape.value)) return 0;
+  return unwrap(measureVolume(shape.value));
 }

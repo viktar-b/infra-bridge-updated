@@ -70,6 +70,20 @@ describe('Gate 3 engineering-coordinate Families', () => {
     expectBounds(resolved, [-4_000, 0, 0, 300, 0, 400]);
   });
 
+  it('mirrors CrossGirder across its transverse Datum without changing its interface', () => {
+    const resolved = resolve(
+      <CrossGirder
+        key="cross"
+        length={4_000}
+        width={300}
+        depth={400}
+        transverseSide="negative"
+        material="reinforced-concrete"
+      />
+    );
+    expectBounds(resolved, [-4_000, 0, -300, 0, 0, 400]);
+  });
+
   it('authors PierStem below its cap control Datum in engineering axes', () => {
     const resolved = resolve(
       <PierStem

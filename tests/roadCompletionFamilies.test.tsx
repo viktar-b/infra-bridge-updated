@@ -207,6 +207,8 @@ describe('completed road-bridge Families', () => {
       material: MATERIALS.bridgeTimber,
       dimensionsMm: { length: 9_909, width: 290.055, height: 956 },
     });
+    expect(resolved.geometry.kind).toBe('Compound');
+    if (resolved.geometry.kind === 'Compound') expect(resolved.geometry.children).toHaveLength(14);
     expectBounds(resolved, [-9_900, 9, 0, 290.055, -336, 620]);
   });
 
@@ -238,6 +240,8 @@ describe('completed road-bridge Families', () => {
       width: 500,
       height: 1_200,
     });
+    expect(resolved.geometry.kind).toBe('Compound');
+    if (resolved.geometry.kind === 'Compound') expect(resolved.geometry.children).toHaveLength(7);
     expectBounds(resolved, [0, 3_000, 0, 500, -400, 800]);
   });
 });

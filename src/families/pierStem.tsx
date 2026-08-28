@@ -6,17 +6,22 @@ import { z } from 'zod';
 import { placedGeometry, transformProp } from '../placement.ts';
 
 const pierStemProps = z.object({
-    length: z.number().positive(),
-    width: z.number().positive(),
-    height: z.number().positive(),
-    capOffset: z.number().nonnegative(),
-    material: z.string().trim().min(1),
-    name: z.string().trim().min(1).default('Pier stem'),
-    transform: transformProp,
+  length: z.number().positive(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  capOffset: z.number().nonnegative(),
+  material: z.string().trim().min(1),
+  name: z.string().trim().min(1).default('Pier stem'),
+  transform: transformProp,
 });
 
 export type PierStemProps = z.output<typeof pierStemProps>;
 export type PierStemInput = z.input<typeof pierStemProps>;
+
+type PierStemKernelProps = Pick<
+  PierStemProps,
+  'length' | 'width' | 'height' | 'capOffset' | 'transform'
+>;
 
 function semantics(props: PierStemProps) {
   return civilSemantics({
@@ -29,17 +34,29 @@ function semantics(props: PierStemProps) {
   });
 }
 
+const PierStemKernel = family<PierStemKernelProps>(
+  'PierStemKernel',
+  ({ length, width, height, capOffset, transform }) => {
+    const datumOffset = [
+      -length / 2,
+      -width / 2,
+      -(capOffset + height),
+    ] satisfies readonly [number, number, number];
+    return placedGeometry(csg.translate(csg.box(length, width, height), datumOffset), transform);
+  }
+);
+
 /** Rectangular stem below a pier-cap control Datum in engineering coordinates. */
 export const PierStem = family<PierStemProps, PierStemInput>(
   'PierStem',
-  ({ length, width, height, capOffset, transform }) =>
-    placedGeometry(
-      csg.translate(csg.box(length, width, height), [
-        -length / 2,
-        -width / 2,
-        -(capOffset + height),
-      ]),
-      transform
-    ),
+  ({ length, width, height, capOffset, transform }) => (
+    <PierStemKernel
+      length={length}
+      width={width}
+      height={height}
+      capOffset={capOffset}
+      transform={transform}
+    />
+  ),
   { props: pierStemProps, semantics }
 );

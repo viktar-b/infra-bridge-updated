@@ -6,17 +6,22 @@ import { z } from 'zod';
 import { placedGeometry, transformProp } from '../placement.ts';
 
 const crossGirderProps = z.object({
-    length: z.number().positive(),
-    width: z.number().positive(),
-    depth: z.number().positive(),
-    transverseSide: z.enum(['positive', 'negative']).default('positive'),
-    material: z.string().trim().min(1),
-    name: z.string().trim().min(1).default('Cross girder'),
-    transform: transformProp,
+  length: z.number().positive(),
+  width: z.number().positive(),
+  depth: z.number().positive(),
+  transverseSide: z.enum(['positive', 'negative']).default('positive'),
+  material: z.string().trim().min(1),
+  name: z.string().trim().min(1).default('Cross girder'),
+  transform: transformProp,
 });
 
 export type CrossGirderProps = z.output<typeof crossGirderProps>;
 export type CrossGirderInput = z.input<typeof crossGirderProps>;
+
+type CrossGirderKernelProps = Pick<
+  CrossGirderProps,
+  'length' | 'width' | 'depth' | 'transverseSide' | 'transform'
+>;
 
 function semantics(props: CrossGirderProps) {
   return civilSemantics({
@@ -29,17 +34,29 @@ function semantics(props: CrossGirderProps) {
   });
 }
 
+const CrossGirderKernel = family<CrossGirderKernelProps>(
+  'CrossGirderKernel',
+  ({ length, width, depth, transverseSide, transform }) => {
+    const datumOffset = [
+      -length,
+      transverseSide === 'positive' ? 0 : -width,
+      0,
+    ] satisfies readonly [number, number, number];
+    return placedGeometry(csg.translate(csg.box(length, width, depth), datumOffset), transform);
+  }
+);
+
 /** Pier cross-girder extending along -X from its lower-end control Datum. */
 export const CrossGirder = family<CrossGirderProps, CrossGirderInput>(
   'CrossGirder',
-  ({ length, width, depth, transverseSide, transform }) =>
-    placedGeometry(
-      csg.translate(csg.box(length, width, depth), [
-        -length,
-        transverseSide === 'positive' ? 0 : -width,
-        0,
-      ]),
-      transform
-    ),
+  ({ length, width, depth, transverseSide, transform }) => (
+    <CrossGirderKernel
+      length={length}
+      width={width}
+      depth={depth}
+      transverseSide={transverseSide}
+      transform={transform}
+    />
+  ),
   { props: crossGirderProps, semantics }
 );
