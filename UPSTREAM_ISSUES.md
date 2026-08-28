@@ -602,3 +602,82 @@ upstream issue.
 
 After BREP-008, author the required surface colours and verify them against the donor. Do not add
 the donor-only `virtual_black` material unless an included scene object uses it.
+
+### LOCAL-009: Define and prove the reusable Family package interface
+
+The Family modules are parametric, but this repository does not yet publish a supported package
+interface. Define one explicit entry point for the Families, composable schemas, and public types
+that another brepjs project may import. Keep private kernels and project assemblies out of that
+entry point.
+
+Add a consumer fixture outside this model's source tree that imports every supported Family only
+through the package entry point, resolves and evaluates one occurrence, and projects the Families
+whose adapters are exact. The fixture must not import `src/placement.ts`, project set-out tables,
+assemblies, or another private repository path.
+
+Document the required `brepjs`, `brepjs-families`, and `brepjs-bim` versions or peer dependency
+ranges, the millimetre unit contract, the civil-semantics dependency, and any required runtime
+initialization. BREP-001 and LOCAL-004 must remove the current project-specific placement
+workaround before the package can claim placement portability.
+
+Acceptance criteria:
+
+- One documented entry point defines the supported Family interface.
+- All current public Family exports are either included or deliberately classified as
+  project-specific.
+- A separate consumer fixture typechecks, resolves, evaluates, and verifies the supported
+  Families without private imports.
+- Package documentation states units, axes, Datum conventions, runtime initialization, and
+  dependency compatibility.
+- The package does not expose private kernels, CSG resources, set-out data, or exporter types.
+
+### LOCAL-010: Decide the portable contract for BridgeNameSign
+
+`BridgeNameSign` is parametric only within the bundled project's six-glyph block font. It imports
+project-owned font registration, hard-codes font metrics, accepts only `B`, `R`, `E`, `P`, `J`,
+and `S`, and requires the caller to register the font before evaluation.
+
+Choose one honest package contract:
+
+- keep `BridgeNameSign` project-specific and exclude it from the reusable entry point; or
+- introduce a target-neutral font or glyph-outline contract owned by the downstream Family
+  package, with explicit initialization and resource ownership.
+
+Do not expose brepjs `Blueprint`, contour, or disposable font handles at the Family invocation
+seam. BREP-003 remains responsible for typed `IfcSign` classification and exact Body projection;
+this issue covers reuse and runtime dependencies only.
+
+Acceptance criteria:
+
+- The reusable package either excludes the current sign or supports a documented portable font
+  contract.
+- Supported glyphs, text fitting, font loading, failure modes, and resource ownership are
+  explicit.
+- A clean consumer process can evaluate a sign without relying on initialization performed by
+  this model's test suite or entry point.
+- The plate and lettering remain one exact authored Body.
+
+### LOCAL-011: State and validate each Family's parametric topology
+
+The Families vary parameters within fixed authored topologies. `RoadRailing` always has two rails
+and one six-point post profile. `SpandrelWall` always creates paired elliptical openings.
+`ArchSegment` and `EarthFill` use fixed curve constructions. These are valid parametric modules,
+but they are not arbitrary railing, wall, arch, or earthworks generators.
+
+Document each supported topology and identify relational inputs that can produce degenerate or
+misleading geometry. At minimum, review arch inner-versus-outer curves, spandrel opening size
+against bay width and wall height, railing run-in and run-out against length, and deck inset
+meaning. Preserve the current accepted input during documentation. Add relational validation only
+as an approved interface change with migration notes and tests.
+
+Acceptance criteria:
+
+- Every packaged Family documents its fixed topology, axes, Datum, parameter meaning, and known
+  invalid relationships.
+- Tests cover each branch that changes topology, handedness, repetition, or placement.
+- Profile and subtractive Families use volume, section, opening, or component assertions instead
+  of bounds alone.
+- Relational validation changes are reviewed as interface changes rather than hidden inside
+  kernel refactors.
+- BREP-005 and LOCAL-006 continue to track exporter fidelity separately from Family
+  parametricity.
