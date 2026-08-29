@@ -5,11 +5,11 @@ This file tracks changes that this repository needs from
 ledger. Local implementation tickets still belong under `.scratch/` as described in
 `docs/agents/issue-tracker.md`.
 
-Tested on 2026-08-28 with:
+Tested on 2026-08-29 with:
 
-- `brepjs@18.163.0`
-- `brepjs-bim@0.22.0`
-- `brepjs-families@0.11.0`
+- `brepjs@18.164.0`
+- `brepjs-bim@0.23.0`
+- `brepjs-families@0.12.0`
 
 ## Policy
 
@@ -30,7 +30,7 @@ Tested on 2026-08-28 with:
 - After filing, keep the entry until this repository consumes the fix. An upstream merge alone
   does not make an entry `resolved`.
 
-## Filed
+## Resolved
 
 ### BREP-001: Compose Family transforms into IFC placements
 
@@ -38,39 +38,63 @@ Tested on 2026-08-28 with:
 | --- | --- |
 | Target | `packages/brepjs-bim`, Families adapter |
 | Kind | Bug |
-| Status | `filed` |
-| Upstream | [andymai/brepjs#2259](https://github.com/andymai/brepjs/issues/2259), filed 2026-08-28 |
-| Last verified | 2026-08-28 |
+| Status | `resolved` |
+| Upstream | [andymai/brepjs#2259](https://github.com/andymai/brepjs/issues/2259), closed by [andymai/brepjs#2260](https://github.com/andymai/brepjs/pull/2260) in `brepjs@18.164.0` / `brepjs-bim@0.23.0` / `brepjs-families@0.12.0` |
+| Last verified | 2026-08-29 |
+
+`familiesToBim` now folds `tRotate` and `tTranslate` into IFC `origin`/`axisX`/`axisZ` for typed
+Products and civil Site, Bridge, and Bridge Part nodes. This repository consumed the release by
+removing yaw peeling, Product `axisX`/`axisZ` stamping, and CSG rotation baking from
+`src/placement.ts` and `src/families/familyPlacement.ts`.
+
+A rotated Site, Bridge, Bridge Part, and Footing now export. Pitched `ApproachSlab` occurrences
+keep their authored `tRotate` list and export as `IfcSlab`. Datum-aware world bounds are a
+separate remaining defect, tracked as BREP-014.
+
+## Filed
+
+_None._
+
+## Ready to file
+
+### BREP-014: Preserve Datum-aware origins on typed civil routes
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, Families adapter |
+| Kind | Bug |
+| Status | `ready` |
+| Upstream | Not filed |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
-`brepjs-families` applies `tRotate` and `tTranslate` to the resolved Family, but
-`familiesToBim` folds translations only. It rejects rotated typed Products and rotated Site,
-Bridge, and Bridge Part frames with `FAMILIES_UNSUPPORTED_TRANSFORM`.
+`#2260` folds authored `tRotate` into the IFC frame, but typed civil routes still rebuild a
+rectangular envelope from semantic dimensions. Inner Datum translations that live in the CSG Body
+are not part of that frame.
 
-This repository works around the rejection in `src/placement.ts` and
-`src/families/familyPlacement.ts`. It removes rotation from civil spatial nodes, pushes yaw to
-child Products, stamps `axisX` and `axisZ` after Family validation, and bakes Product rotation into
-geometry.
+On the unrotated leaf fixture, IFC round-trip shifts `ApproachSlab` by `[-250, -150, 0]`,
+`BridgeDeck` by `[-300, -150, 0]`, and `Footing` by `[-250, -150, 0]`. Those are half-dimension
+shifts, not rotation tolerance.
 
-The pitched `ApproachSlab` exposes a second placement failure. Its upper-inner Datum translation
-is inside a rotated Body. The projected slab keeps the correct dimensions and volume but moves to
-the wrong world position after IFC round-trip. `composedOrigin()` only peels an outer literal
-translation chain.
+On the full model, each pitched `ApproachSlab` still has the correct volume after projection, but
+`placedSolids()` and IFC import miss the upper-inner Datum. The first occurrence's authored
+`xMin` is `10021.783`; the placed BIM solid's `xMin` is `-3716.000`.
 
-The leaf projection fixture also proves that the IFC writer shifts unrotated Datum-aware slabs and
-footings after an otherwise exact in-memory projection. On the fixture, `ApproachSlab` moves by
-`[-250, -150, 0]`, `BridgeDeck` moves by `[-300, -150, 0]`, and `Footing` moves by
-`[-250, -150, 0]`. These are half-dimension shifts, not rotation tolerance.
+`composedOrigin()` only peels an outer literal translation chain. A Datum offset inside a rotated
+Body is therefore dropped when the typed spec is synthesized.
 
 #### Reproduction
 
-The upstream issue contains a reduced `tRotate` reproduction. The local Datum case is:
+Unrotated half-dimension case: `tests/familyProjection.test.tsx` asserts that classification and
+volume remain correct while those three IFC round-trip bounds remain different from the in-memory
+projection.
+
+Pitched Datum case:
 
 1. Resolve the model built by `src/main.tsx`.
 2. Project it with `familiesToBim`.
-3. Serialize and import it with `toIfc` and `fromIfc`.
-4. Compare the authored and imported world bounds for both `ApproachSlab` occurrences.
+3. Compare authored world bounds with `placedSolids()` and with `toIfc` / `fromIfc`.
 
 `tests/fullModel.test.tsx` contains the pending regression:
 
@@ -78,41 +102,23 @@ The upstream issue contains a reduced `tRotate` reproduction. The local Datum ca
 it.todo('preserves the pitched ApproachSlab upper-inner Datum through BIM projection');
 ```
 
-`tests/familyProjection.test.tsx` contains active assertions that classification and volume remain
-correct while those three unrotated IFC round-trip bounds remain different from the in-memory
-projection.
-
-On `brepjs-bim@0.22.0`, the first slab changes from authored bounds
-`[10021.783, 13937.579, 24746.849, 29086.096, -199.007, 242.321]` to imported bounds
-`[9855.268, 13771.064, 22572.25, 26911.497, -121.161, 320.168]`.
-
 #### Expected result
 
-The Families adapter must compose transforms in authored order and convert the resulting pose to
-IFC `origin`, `axisX`, and `axisZ`. A Datum offset inside a rotated typed Product must remain in the
-same world position.
+A typed Product must keep the authored world Datum after projection and IFC round-trip, including
+when the Datum offset is inside a rotated Body.
 
 #### Acceptance criteria
 
-- A typed Product with a local `tRotate` exports successfully.
-- A typed Product below a rotated ancestor exports successfully.
-- A rotated Site, Bridge, or Bridge Part exports successfully.
-- `[tRotate(...), tTranslate(...)]` and `[tTranslate(...), tRotate(...)]` retain their authored
-  order.
-- Supported non-default axes and pivots export correctly. Unsupported transforms fail with a
-  specific error.
-- Both pitched `ApproachSlab` occurrences have matching authored and IFC round-trip world bounds.
+- Both pitched `ApproachSlab` occurrences have matching authored, placed, and IFC round-trip
+  world bounds.
 - Unrotated slabs and footings preserve corner and centre Datum origins without half-dimension
   shifts.
-- The current local yaw peel, axis stamping, and rotation bake are no longer required.
+- Rectangular girders, stems, pads, and decks keep typed classification and volume.
 
 #### Local completion
 
-Add the Datum reproduction to #2259 or file a focused follow-up if upstream confirms a separate
-root cause. After consuming the fix, enable the pending regression and simplify
-`src/placement.ts` and `src/families/familyPlacement.ts` to target-neutral placement helpers only.
-
-## Ready to file
+Enable the pending `ApproachSlab` world-bounds regression and remove the
+`roundTripPlacementGaps` exceptions in `tests/familyProjection.test.tsx`.
 
 ### BREP-002: Add a typed exact-body IfcMember route
 
@@ -122,7 +128,7 @@ root cause. After consuming the fix, enable the pending regression and simplify
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -165,7 +171,7 @@ upstream release.
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -208,7 +214,7 @@ release.
 | Kind | Bug and API enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -255,7 +261,7 @@ available. See `LOCAL-003`.
 | Kind | Bug and API design |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -313,7 +319,7 @@ remove the known envelope mismatch. See `LOCAL-006`.
 | Kind | Bug |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -354,7 +360,7 @@ not part of the required contract.
 | Kind | API design |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -394,7 +400,7 @@ GlobalIds.
 | Kind | Enhancement |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -430,7 +436,7 @@ exact Bodies.
 | Kind | API design |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -469,7 +475,7 @@ container a false Body.
 | Kind | Bug |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -508,7 +514,7 @@ profile coordinates to the Beam's transverse and vertical axes.
 | Kind | Bug |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Problem
 
@@ -545,7 +551,7 @@ matching world bounds and volume. If a mesh is genuinely open, the importer shou
 | Kind | Enhancement |
 | Status | `deferred` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Difference
 
@@ -569,7 +575,7 @@ first-class ADD2 support.
 | Kind | Enhancement |
 | Status | `deferred` |
 | Upstream | Not filed |
-| Last verified | 2026-08-28 |
+| Last verified | 2026-08-29 |
 
 #### Difference
 
@@ -648,13 +654,9 @@ in BREP-004.
 
 ### LOCAL-004: Remove the placement workaround after BREP-001
 
-After consuming the upstream fix:
-
-- Enable the pitched `ApproachSlab` world-bounds regression.
-- Remove yaw peeling and Product axis stamping from `src/placement.ts`, plus baked Family rotations
-  from `src/families/familyPlacement.ts`.
-- Let normal Family transform validation and `familiesToBim` own transform composition.
-- Keep small target-neutral placement helpers only if the model still benefits from them.
+Done on 2026-08-29 with `brepjs@18.164.0`. `spatialGroup` and `placedGeometry` now forward
+authored `tRotate`/`tTranslate` lists. The remaining pitched `ApproachSlab` world-bounds
+regression is BREP-014, not a local workaround.
 
 ### LOCAL-005: Remove proxy expectations after BREP-002 and BREP-003
 
@@ -706,8 +708,8 @@ another private repository path.
 
 Document the required `brepjs`, `brepjs-families`, and `brepjs-bim` versions or peer dependency
 ranges, the millimetre unit contract, the civil-semantics dependency, and any required runtime
-initialization. BREP-001 and LOCAL-004 must remove the current project-specific placement
-workaround before the package can claim placement portability.
+initialization. BREP-014 must preserve Datum-aware placement before the package can claim
+placement portability.
 
 Acceptance criteria:
 

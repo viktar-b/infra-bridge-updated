@@ -1,26 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { tRotate, tTranslate } from 'brepjs-families';
-import { foldPose, placement } from '../src/placement.ts';
+import { placement } from '../src/placement.ts';
 
-describe('civil pose folding', () => {
-  it('keeps an authored [rotate, translate] origin unrotated', () => {
-    const pose = foldPose(placement([-4_795.5, 0, 0], 90));
-    expect(pose.origin[0]).toBeCloseTo(-4_795.5, 6);
-    expect(pose.origin[1]).toBeCloseTo(0, 6);
-    expect(pose.origin[2]).toBeCloseTo(0, 6);
-    expect(pose.axisX[0]).toBeCloseTo(0, 6);
-    expect(pose.axisX[1]).toBeCloseTo(1, 6);
+describe('civil pose authoring', () => {
+  it('authors rotate then translate for a plan bearing and origin', () => {
+    expect(placement([-4_795.5, 0, 0], 90)).toEqual([
+      tRotate(90),
+      tTranslate([-4_795.5, 0, 0]),
+    ]);
   });
 
-  it('rotates a trailing yaw through an already translated origin', () => {
-    const pose = foldPose([
-      tTranslate([-5_000, -2_200, -490]),
-      tRotate(-90),
-    ]);
-    expect(pose.origin[0]).toBeCloseTo(-2_200, 6);
-    expect(pose.origin[1]).toBeCloseTo(5_000, 6);
-    expect(pose.origin[2]).toBeCloseTo(-490, 6);
-    expect(pose.axisX[0]).toBeCloseTo(0, 6);
-    expect(pose.axisX[1]).toBeCloseTo(-1, 6);
+  it('omits a zero bearing and a zero origin', () => {
+    expect(placement([0, 0, 0])).toEqual([]);
+    expect(placement([100, 0, 0])).toEqual([tTranslate([100, 0, 0])]);
+    expect(placement([0, 0, 0], -90)).toEqual([tRotate(-90)]);
   });
 });

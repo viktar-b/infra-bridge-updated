@@ -16,7 +16,7 @@ Parametric building model on brepjs. Units are mm end to end.
 - Families: `family('Name', render, { archetype })`. Identity props (`key`, `name`, `material`, `psets`) ride on any element. Every IFC-bound element needs an explicit `key` (GlobalIds derive from key paths).
 - Voids: a fill-role family (door/window) inside a host's `voids` becomes a real IfcOpening + fill. Anonymous voids cut only the viewport mesh and are rejected by IFC export.
 - Routed archetypes: storey, wall, slab, column, beam, roof, stair, door, window, footing, pile, railing, ramp, covering, curtainWall, space. Anything else exports as IfcBuildingElementProxy.
-- Placement: fold translations via `transform: [tTranslate([x, y, z])]`; orient walls via `axisX`, never a rotate op (IFC export rejects rotated spec placements).
+- Placement: author `tTranslate` and `tRotate` on `transform`. `familiesToBim` folds the composed pose into IFC `origin`/`axisX`/`axisZ`. Do not bake rotations into CSG or stamp `axisX`/`axisZ` after Family validation.
 
 ## Conventions
 

@@ -26,14 +26,15 @@ layout derivations stay private.
   and expose no disposable handles.
 - Use TypeScript JSX with `jsx: "react-jsx"`, `jsxImportSource: "brepjs-families"`, and explicit
   `.ts` or `.tsx` import extensions.
-- The current source is verified with `brepjs@18.163.0`, `brepjs-families@0.11.0`, and
-  `zod@4.4.3`.
+- The current source is verified with `brepjs@18.164.0`, `brepjs-families@0.12.0`,
+  `brepjs-bim@0.23.0`, and `zod@4.5.2`.
 - `BridgeNameSign` has no font or asset initialization. Its text is uppercase metadata, and its
   Body is a plain plate.
 
-`familyPlacement.ts` preserves authored transform order, bakes rotations into the CSG Body, and
-keeps the folded translation on the resolved Geometry placement. This matches the current model
-and viewport behavior. IFC placement limits remain an adapter concern tracked in
+`familyPlacement.ts` keeps the authored `transform` list on the Geometry intrinsic.
+`familiesToBim` folds `tRotate` and `tTranslate` into IFC `origin`/`axisX`/`axisZ`. Typed
+routes still synthesize rectangular envelopes from semantic dimensions, so Datum-aware
+slabs and footings can shift after IFC round-trip; that remaining adapter gap is tracked in
 [`UPSTREAM_ISSUES.md`](../../UPSTREAM_ISSUES.md).
 
 ## Fixed topology and Datum ledger
@@ -59,7 +60,7 @@ separate migration decision and tests.
 
 ## Projection status
 
-The authored CSG Body remains authoritative. With `brepjs-bim@0.22.0`, the simple rectangular
+The authored CSG Body remains authoritative. With `brepjs-bim@0.23.0`, the simple rectangular
 beams and columns preserve classification, Body, and placement. The typed
 `AbutmentSupportBeam` IFC output preserves its authored profile, but the eager `BimModel` solid
 swaps the profile axes. `ArchSegment` and `BridgeNameSign` preserve their Bodies through proxy

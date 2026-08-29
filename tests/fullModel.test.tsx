@@ -9,6 +9,7 @@ import {
   evaluateModel,
   family,
   resolve,
+  tRotate,
   tTranslate,
   type ResolvedElement,
 } from 'brepjs-families';
@@ -104,7 +105,7 @@ describe('complete declarative infrastructure bridge model', () => {
         siteName,
         origin,
         bridgeKey: railBridgeKey(occurrenceKey),
-        rotated: false,
+        rotated: true,
       }))
     );
   });
@@ -160,7 +161,7 @@ describe('complete declarative infrastructure bridge model', () => {
             semantics?.kind === 'facility' ||
             semantics?.kind === 'spatial-part'
         )
-        .every(({ localTransforms }) => localTransforms.every((op) => op.op !== 'rotate'))
+        .some(({ localTransforms }) => localTransforms.some((op) => op.op === 'rotate'))
     ).toBe(true);
     const bytes = unwrap(
       await toIfc(bim, {
@@ -243,6 +244,33 @@ describe('complete declarative infrastructure bridge model', () => {
       }
     } finally {
       disposeImportedModel(imported);
+    }
+  }, 60_000);
+
+  it('exports pitched ApproachSlab occurrences with authored tRotate', async () => {
+    const root = resolve(await buildInfraBridge());
+    const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
+    using evaluator = new csg.Evaluator();
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(approachSlabs).toHaveLength(2);
+    expect(
+      approachSlabs.every(({ localTransforms }) =>
+        localTransforms.some((op) => op.op === 'rotate')
+      )
+    ).toBe(true);
+    for (const approachSlab of approachSlabs) {
+      const localId = projected.idByKeyPath.get(approachSlab.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      expect(bim.getElement(localId)?.category).toBe('SLAB');
     }
   }, 60_000);
 
@@ -457,6 +485,82 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(bim.getBridges()).toHaveLength(1);
     expect(bim.getBridgeParts()).toHaveLength(1);
     expect(bim.getFootings()).toHaveLength(1);
+    const bytes = unwrap(
+      await toIfc(bim, {
+        applicationName: 'infra-bridge',
+        applicationVersion: '0',
+        ifcSchema: 'IFC4X3',
+      })
+    );
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  }, 60_000);
+
+  it('exports a rotated civil Site, Bridge, Bridge Part, and Product through familiesToBim', async () => {
+    const RotatedBridgePart = family(
+      'RotatedBridgePart',
+      () =>
+        el('Group', { transform: [tRotate(30)] }, [
+          <Footing
+            key="footing"
+            transform={[tRotate(-15), tTranslate([100, 0, 0])]}
+            length={1_000}
+            width={800}
+            thickness={400}
+            material={MATERIALS.reinforcedConcrete}
+          />,
+        ]),
+      {
+        semantics: civilSemantics({
+          kind: 'spatial-part',
+          category: 'bridge-part',
+          role: 'pier',
+          composition: 'element',
+          subdivision: 'vertical',
+          properties: { name: 'Rotated pier' },
+        }),
+      }
+    );
+    const RotatedBridge = family(
+      'RotatedBridge',
+      () => el('Group', { transform: [tRotate(45)] }, [<RotatedBridgePart key="part" />]),
+      {
+        semantics: civilSemantics({
+          kind: 'facility',
+          category: 'bridge',
+          role: 'girder',
+          composition: 'element',
+          properties: { name: 'Rotated bridge' },
+        }),
+      }
+    );
+    const RotatedSite = family(
+      'RotatedSite',
+      () => el('Group', { transform: [tRotate(20)] }, [<RotatedBridge key="bridge" />]),
+      {
+        semantics: civilSemantics({
+          kind: 'site',
+          category: 'site',
+          role: 'transport-site',
+          composition: 'element',
+          properties: { name: 'Rotated site' },
+        }),
+      }
+    );
+
+    const root = resolve(<RotatedSite key="site" />);
+    using evaluator = new csg.Evaluator();
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        bodyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+    expect(projected.proxied).toEqual([]);
+    expect(bim.getBridges()).toHaveLength(1);
+    expect(bim.getBridgeParts()).toHaveLength(1);
+    expect(bim.getFootings()).toHaveLength(1);
+    expect(root.localTransforms.some((op) => op.op === 'rotate')).toBe(true);
     const bytes = unwrap(
       await toIfc(bim, {
         applicationName: 'infra-bridge',
