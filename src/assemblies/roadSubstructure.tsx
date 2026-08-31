@@ -15,7 +15,7 @@ const semantics = civilSemantics({
     kind: 'spatial-part',
     category: 'bridge-part',
     role: 'substructure',
-    composition: 'element',
+    composition: 'collection',
     subdivision: 'regional',
     properties: { name: 'Road bridge substructure' },
   });

@@ -19,7 +19,7 @@ function semantics(props: RailSubstructureProps) {
     kind: 'spatial-part',
     category: 'bridge-part',
     role: 'substructure',
-    composition: 'element',
+    composition: 'collection',
     subdivision: 'regional',
     properties: { name: props.name },
   });

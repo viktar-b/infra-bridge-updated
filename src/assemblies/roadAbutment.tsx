@@ -25,7 +25,7 @@ function semantics(props: RoadAbutmentProps) {
     kind: 'spatial-part',
     category: 'bridge-part',
     role: 'abutment',
-    composition: 'element',
+    composition: 'partial',
     subdivision: 'vertical',
     properties: { name: props.name },
   });

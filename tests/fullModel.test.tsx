@@ -15,6 +15,7 @@ import {
 } from 'brepjs-families';
 import { Footing } from '../src/families/footing.tsx';
 import { MATERIALS } from '../src/materials.ts';
+import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
 import { buildInfraBridge } from '../src/main.tsx';
 import { RAIL_SITE_OCCURRENCES, railBridgeKey, railSiteKey } from '../src/setout.ts';
 
@@ -58,11 +59,29 @@ describe('complete declarative infrastructure bridge model', () => {
           semantics?.kind === 'spatial-part' &&
           'category' in semantics &&
           semantics.category === 'bridge-part' &&
-          semantics.composition === 'element' &&
           semantics.subdivision !== undefined &&
           ['longitudinal', 'vertical', 'regional'].includes(semantics.subdivision)
       )
     ).toBe(true);
+    expect(
+      categoryCounts(
+        parts.map(({ type, semantics }) =>
+          semantics !== undefined && 'composition' in semantics
+            ? `${type}:${semantics.composition}`
+            : type
+        )
+      )
+    ).toEqual({
+      'RailArchSuperstructure:element': 2,
+      'RailPier:partial': 4,
+      'RailSubstructure:collection': 2,
+      'RoadAbutment:partial': 2,
+      'RoadApproach:collection': 2,
+      'RoadDeck:element': 1,
+      'RoadPier:partial': 3,
+      'RoadSubstructure:collection': 1,
+      'RoadSuperstructure:element': 1,
+    });
     expect(products).toHaveLength(47);
     expect(categoryCounts(products.map(({ semantics }) => semanticCategory(semantics)))).toEqual({
       beam: 8,
@@ -134,7 +153,7 @@ describe('complete declarative infrastructure bridge model', () => {
     using evaluator = new csg.Evaluator();
     const projected = unwrap(
       familiesToBim(root, {
-        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        project: PROJECT_SPEC,
         bodyEvaluator: evaluator,
         proxyEvaluator: evaluator,
       })
@@ -149,6 +168,12 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(bim.getWalls()).toHaveLength(4);
     expect(bim.getRailings()).toHaveLength(2);
     expect(bim.getEarthworksFills()).toHaveLength(4);
+    expect(bim.getEarthworksFills().every(({ spec }) => spec.predefinedType === 'BACKFILL')).toBe(
+      true
+    );
+    expect(
+      categoryCounts(bim.getBridgeParts().map(({ spec }) => spec.compositionType ?? 'missing'))
+    ).toEqual({ COMPLEX: 5, ELEMENT: 4, PARTIAL: 9 });
     expect(projected.proxied).toHaveLength(12);
     expect(projected.proxied.every(({ type }) => type === 'ArchSegment' || type === 'BridgeNameSign')).toBe(
       true
@@ -163,14 +188,15 @@ describe('complete declarative infrastructure bridge model', () => {
         )
         .some(({ localTransforms }) => localTransforms.some((op) => op.op === 'rotate'))
     ).toBe(true);
-    const bytes = unwrap(
-      await toIfc(bim, {
-        applicationName: 'infra-bridge',
-        applicationVersion: '0',
-        ifcSchema: 'IFC4X3',
-      })
-    );
+    const bytes = unwrap(await toIfc(bim, IFC_META));
     expect(bytes.byteLength).toBeGreaterThan(10_000);
+    const step = new TextDecoder('latin1').decode(bytes);
+    expect(step).toContain('ViewDefinition [ReferenceView]');
+    expect(step).not.toContain('ViewDefinition [ReferenceView_v1.2]');
+    expect(step).toContain("IFCPROJECTEDCRS('EPSG:32760'");
+    expect(step).toContain('729011.226');
+    expect(step).toContain('9063960.608');
+    expect(step).not.toMatch(/IFCBUILDINGELEMENTPROXY\([^;]*'geo-reference'/);
   }, 60_000);
 
   it('preserves both ApproachSlab dimensions and volumes through typed BIM projection', async () => {
@@ -180,7 +206,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
     const projected = unwrap(
       familiesToBim(root, {
-        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        project: PROJECT_SPEC,
         bodyEvaluator: evaluator,
         proxyEvaluator: evaluator,
       })
@@ -220,13 +246,7 @@ describe('complete declarative infrastructure bridge model', () => {
       });
     }
 
-    const bytes = unwrap(
-      await toIfc(bim, {
-        applicationName: 'infra-bridge',
-        applicationVersion: '0',
-        ifcSchema: 'IFC4X3',
-      })
-    );
+    const bytes = unwrap(await toIfc(bim, IFC_META));
     const imported = unwrap(await fromIfc(bytes));
     try {
       expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
@@ -253,7 +273,7 @@ describe('complete declarative infrastructure bridge model', () => {
     using evaluator = new csg.Evaluator();
     const projected = unwrap(
       familiesToBim(root, {
-        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        project: PROJECT_SPEC,
         bodyEvaluator: evaluator,
         proxyEvaluator: evaluator,
       })
@@ -283,7 +303,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
     const projected = unwrap(
       familiesToBim(root, {
-        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        project: PROJECT_SPEC,
         bodyEvaluator: evaluator,
         proxyEvaluator: evaluator,
       })
@@ -337,13 +357,7 @@ describe('complete declarative infrastructure bridge model', () => {
       },
     ]);
 
-    const bytes = unwrap(
-      await toIfc(bim, {
-        applicationName: 'infra-bridge',
-        applicationVersion: '0',
-        ifcSchema: 'IFC4X3',
-      })
-    );
+    const bytes = unwrap(await toIfc(bim, IFC_META));
     const imported = unwrap(await fromIfc(bytes));
     try {
       expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
@@ -382,7 +396,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
     const projected = unwrap(
       familiesToBim(root, {
-        project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+        project: PROJECT_SPEC,
         bodyEvaluator: evaluator,
         proxyEvaluator: evaluator,
       })

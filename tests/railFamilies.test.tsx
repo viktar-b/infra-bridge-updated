@@ -28,6 +28,7 @@ describe('rail-arch bridge Families', () => {
     expect(resolved.semantics).toMatchObject({
       kind: 'product',
       category: 'earthworks-fill',
+      role: 'backfill',
       material: MATERIALS.genericSoil,
       dimensionsMm: { length: 10_000, width: 3_500, height: 4_084.236 },
       properties: { profile: 'cubic-crown' },

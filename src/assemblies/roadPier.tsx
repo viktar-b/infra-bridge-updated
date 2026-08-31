@@ -36,7 +36,7 @@ function semantics(props: RoadPierProps) {
     kind: 'spatial-part',
     category: 'bridge-part',
     role: 'pier',
-    composition: 'element',
+    composition: 'partial',
     subdivision: 'vertical',
     properties: { name: props.name },
   });

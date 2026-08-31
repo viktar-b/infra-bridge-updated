@@ -2,13 +2,14 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { init, unwrap, csg } from 'brepjs';
 import { resolve } from 'brepjs-families';
 import { familiesToBim, toIfc } from 'brepjs-bim';
+import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
 import { buildInfraBridge } from '../src/main.tsx';
 
 await init();
 const tree = resolve(await buildInfraBridge());
 using evaluator = new csg.Evaluator();
 const projected = familiesToBim(tree, {
-  project: { name: 'infra-bridge', projectId: 'infra-bridge' },
+  project: PROJECT_SPEC,
   bodyEvaluator: evaluator,
   proxyEvaluator: evaluator,
 });
@@ -17,13 +18,7 @@ if (!projected.ok) {
   process.exit(1);
 }
 using bim = projected.value.model;
-const bytes = unwrap(
-  await toIfc(bim, {
-    applicationName: 'infra-bridge',
-    applicationVersion: '0',
-    ifcSchema: 'IFC4X3',
-  })
-);
+const bytes = unwrap(await toIfc(bim, IFC_META));
 mkdirSync('dist', { recursive: true });
 writeFileSync('dist/model.ifc', Buffer.from(bytes));
 console.log(`wrote dist/model.ifc (${projected.value.idByKeyPath.size} elements)`);

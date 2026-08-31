@@ -26,7 +26,7 @@ function semantics(props: RoadApproachProps) {
     kind: 'spatial-part',
     category: 'bridge-part',
     role: 'surface-structure',
-    composition: 'element',
+    composition: 'collection',
     subdivision: 'longitudinal',
     properties: { name: props.name },
   });

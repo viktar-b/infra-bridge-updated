@@ -597,45 +597,6 @@ causes a real interoperability failure.
 These items belong in this repository. They are kept here because they depend on, or were found
 while defining, the upstream work above.
 
-### LOCAL-001: Apply civil semantics already supported by the adapter
-
-Change `EarthFill` from role `embankment` to `backfill` so it projects to
-`IfcEarthworksFill.BACKFILL`.
-
-Use the existing composition mapping, where `collection` becomes `COMPLEX`, `element` becomes
-`ELEMENT`, and `partial` becomes `PARTIAL`:
-
-| Bridge-part group | Donor composition |
-| --- | --- |
-| Road approaches | `COMPLEX` |
-| Road abutments | `PARTIAL` |
-| Road deck | `ELEMENT` |
-| Road superstructure | `ELEMENT` |
-| Road and rail substructures | `COMPLEX` |
-| Road and rail piers | `PARTIAL` |
-| Rail superstructure | `ELEMENT` |
-
-The donor uses subdivision `LATERAL` on every Bridge Part. This model currently uses
-`LONGITUDINAL`, `VERTICAL`, and `REGION` according to the part's function. Decide whether a target
-checker requires donor enum parity before changing these values.
-
-### LOCAL-002: Configure and verify the project CRS
-
-Pass a project CRS to `familiesToBim` for `EPSG:32760`.
-
-The donor map conversion contains values that appear to be millimetre-scaled UTM coordinates:
-
-- Easting: `729011225.88`
-- Northing: `9063960607.64`
-
-The proposed metre values are:
-
-- Easting: `729011.226`
-- Northing: `9063960.608`
-
-Confirm these values against the donor's SketchUp GIS setup before committing them. Use
-`IfcProjectedCRS` and `IfcMapConversion`; do not add a geometry Product for georeferencing.
-
 ### LOCAL-003: Restore donor occurrence identity after BREP-004
 
 Use authored occurrence names and descriptions after typed specs support them. Known donor values
@@ -651,12 +612,6 @@ include:
 Extract the exact long sign description from `fixtures/Donor-Infra-Bridge.ifc` before adding its
 regression assertion. Carry `ObjectType` and `Tag` only through the target-neutral contract agreed
 in BREP-004.
-
-### LOCAL-004: Remove the placement workaround after BREP-001
-
-Done on 2026-08-29 with `brepjs@18.164.0`. `spatialGroup` and `placedGeometry` now forward
-authored `tRotate`/`tTranslate` lists. The remaining pitched `ApproachSlab` world-bounds
-regression is BREP-014, not a local workaround.
 
 ### LOCAL-005: Remove proxy expectations after BREP-002 and BREP-003
 
@@ -687,9 +642,9 @@ Add the objects only when their source geometry and set-out are in scope. Use th
 
 ### LOCAL-008: Apply remaining export metadata
 
-The donor uses application name `IFC-manager` and MVD text `ViewDefinition [ReferenceView]`.
-`toIfc` already accepts application and MVD strings, so this is local configuration rather than an
-upstream issue.
+MVD `ViewDefinition [ReferenceView]` and application name `infra-bridge` are set in
+`src/exportConfig.ts`. The donor application name `IFC-manager` is not copied; this repository
+does not impersonate the SketchUp exporter.
 
 After BREP-008, author the required surface colours and verify them against the donor. Do not add
 the donor-only `virtual_black` material unless an included scene object uses it.
@@ -721,6 +676,42 @@ Acceptance criteria:
 - Package documentation states units, axes, Datum conventions, runtime initialization, and
   dependency compatibility.
 - The package does not expose private kernels, CSG resources, set-out data, or exporter types.
+
+## Closed local follow-ups
+
+These items are complete in this repository. IDs are stable and are not reused.
+
+### LOCAL-001: Apply civil semantics already supported by the adapter
+
+Done on 2026-08-31. `EarthFill` uses role `backfill` and exports as `IfcEarthworksFill.BACKFILL`.
+Bridge Parts author `collection` / `element` / `partial`, which the adapter maps to `COMPLEX` /
+`ELEMENT` / `PARTIAL`:
+
+| Bridge-part group | Composition |
+| --- | --- |
+| Road approaches | `COMPLEX` |
+| Road abutments | `PARTIAL` |
+| Road deck | `ELEMENT` |
+| Road superstructure | `ELEMENT` |
+| Road and rail substructures | `COMPLEX` |
+| Road and rail piers | `PARTIAL` |
+| Rail superstructure | `ELEMENT` |
+
+Subdivision stays function-based (`LONGITUDINAL`, `VERTICAL`, `REGION`). The donor stamps `LATERAL`
+on every Bridge Part; that is not required by a known checker.
+
+### LOCAL-002: Configure and verify the project CRS
+
+Done on 2026-08-31. `src/exportConfig.ts` passes `EPSG:32760` to `familiesToBim` with metre
+easting `729011.226` and northing `9063960.608`, derived by dividing the donor millimetre-prefixed
+`IfcMapConversion` values by 1000. Export emits `IfcProjectedCRS` and `IfcMapConversion` and does
+not add a `geo-reference` geometry Product.
+
+### LOCAL-004: Remove the placement workaround after BREP-001
+
+Done on 2026-08-29 with `brepjs@18.164.0`. `spatialGroup` and `placedGeometry` now forward
+authored `tRotate`/`tTranslate` lists. The remaining pitched `ApproachSlab` world-bounds
+regression is BREP-014, not a local workaround.
 
 ### LOCAL-010: Remove the project font from BridgeNameSign
 

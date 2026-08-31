@@ -36,7 +36,7 @@ function semantics(props: EarthFillProps) {
   return civilSemantics({
     kind: 'product',
     category: 'earthworks-fill',
-    role: 'embankment',
+    role: 'backfill',
     material: props.material,
     dimensionsMm: { length: props.halfSpan * 2, width: props.halfWidth * 2, height: props.crownRise },
     properties: { name: props.name, datum: 'crown-centreline-low-point', profile: 'cubic-crown' },
