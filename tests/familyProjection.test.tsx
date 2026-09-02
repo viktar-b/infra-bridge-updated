@@ -71,15 +71,7 @@ const exactBodyFamilies = new Set([
   'PierStem',
   'RailPierStem',
 ]);
-
-const roundTripPlacementGaps = new Set([
-  'ApproachSlab',
-  'BridgeDeck',
-  'Footing',
-  'RoadRailing',
-  'SpandrelWall',
-]);
-const roundTripUnreadableBodies = new Set(['ArchSegment', 'BridgeNameSign', 'EarthFill']);
+const tessellatedRoundTripFamilies = new Set(['ArchSegment', 'BridgeNameSign', 'EarthFill']);
 
 const placement = [tTranslate([1_000, 2_000, 3_000])];
 
@@ -368,17 +360,16 @@ describe('leaf Family projection fidelity', () => {
         expect(importedElement?.category).toBe(expected.category);
         const importedSolid = importedElement?.geometry.solid;
 
-        if (roundTripUnreadableBodies.has(expected.familyType)) {
-          expect(importedElement?.geometry.fidelity, expected.familyType).toBe('NONE');
-          expect(importedSolid, expected.familyType).toBeNull();
-          continue;
-        }
         expect(importedSolid, expected.familyType).not.toBeNull();
         expect(importedSolid, expected.familyType).toBeDefined();
         if (importedSolid === null || importedSolid === undefined) continue;
         const importedBounds = boundsTuple(getBounds(importedSolid));
         const importedVolume = totalVolume([importedSolid]);
-        expect(importedVolume, expected.familyType).toBeCloseTo(expected.projectedVolume, 1);
+        if (tessellatedRoundTripFamilies.has(expected.familyType)) {
+          expect(importedVolume / expected.projectedVolume, expected.familyType).toBeCloseTo(1, 5);
+        } else {
+          expect(importedVolume, expected.familyType).toBeCloseTo(expected.projectedVolume, 1);
+        }
 
         if (expected.familyType === 'AbutmentSupportBeam') {
           expectTupleClose(
@@ -390,13 +381,11 @@ describe('leaf Family projection fidelity', () => {
           continue;
         }
 
-        if (roundTripPlacementGaps.has(expected.familyType)) {
-          expect(
-            maximumDifference(importedBounds, expected.projectedBounds),
-            expected.familyType
-          ).toBeGreaterThan(0.01);
-          continue;
-        }
+        expect(importedElement?.geometry.fidelity, expected.familyType).toBe(
+          tessellatedRoundTripFamilies.has(expected.familyType)
+            ? 'TESSELLATED_MANIFOLD'
+            : 'PARAMETRIC'
+        );
         expectTupleClose(
           importedBounds,
           expected.projectedBounds,
@@ -455,6 +444,3 @@ function expectTupleClose(
   );
 }
 
-function maximumDifference(actual: readonly number[], expected: readonly number[]): number {
-  return Math.max(...actual.map((value, index) => Math.abs(value - (expected[index] ?? value))));
-}

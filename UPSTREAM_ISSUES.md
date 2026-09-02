@@ -5,10 +5,10 @@ This file tracks changes that this repository needs from
 ledger. Local implementation tickets still belong under `.scratch/` as described in
 `docs/agents/issue-tracker.md`.
 
-Tested on 2026-08-29 with:
+Tested on 2026-09-02 with:
 
-- `brepjs@18.164.0`
-- `brepjs-bim@0.23.0`
+- `brepjs@18.164.1`
+- `brepjs-bim@0.23.1`
 - `brepjs-families@0.12.0`
 
 ## Policy
@@ -40,7 +40,7 @@ Tested on 2026-08-29 with:
 | Kind | Bug |
 | Status | `resolved` |
 | Upstream | [andymai/brepjs#2259](https://github.com/andymai/brepjs/issues/2259), closed by [andymai/brepjs#2260](https://github.com/andymai/brepjs/pull/2260) in `brepjs@18.164.0` / `brepjs-bim@0.23.0` / `brepjs-families@0.12.0` |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 `familiesToBim` now folds `tRotate` and `tTranslate` into IFC `origin`/`axisX`/`axisZ` for typed
 Products and civil Site, Bridge, and Bridge Part nodes. This repository consumed the release by
@@ -48,14 +48,26 @@ removing yaw peeling, Product `axisX`/`axisZ` stamping, and CSG rotation baking 
 `src/placement.ts` and `src/families/familyPlacement.ts`.
 
 A rotated Site, Bridge, Bridge Part, and Footing now export. Pitched `ApproachSlab` occurrences
-keep their authored `tRotate` list and export as `IfcSlab`. Datum-aware world bounds are a
-separate remaining defect, tracked as BREP-014.
+keep their authored `tRotate` list and export as `IfcSlab`. Datum-aware world bounds were a
+follow-on defect, now resolved as BREP-014.
 
-## Filed
+### BREP-013: Reconstruct tessellated proxy and Earthworks Fill Bodies on IFC import
 
-_None._
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, IFC importer |
+| Kind | Bug |
+| Status | `resolved` |
+| Upstream | Not filed separately; fixed by [andymai/brepjs#2273](https://github.com/andymai/brepjs/pull/2273) in `brepjs@18.164.1` / `brepjs-bim@0.23.1` |
+| Last verified | 2026-09-02 |
 
-## Ready to file
+`fromIfc` now undoes web-ifc's Y-up mesh frame and sews triangles through `buildTriFace` /
+`sewAndSolidify`. Closed tessellated Bodies return as `TESSELLATED_MANIFOLD` solids.
+
+This repository consumed the release by replacing the `fidelity = NONE` / `solid = null`
+expectations in `tests/familyProjection.test.tsx`. `ArchSegment`, `BridgeNameSign`, and
+`EarthFill` now round-trip with matching world bounds and volume within a relative `1e-5`
+tessellation tolerance.
 
 ### BREP-014: Preserve Datum-aware origins on typed civil routes
 
@@ -63,62 +75,92 @@ _None._
 | --- | --- |
 | Target | `packages/brepjs-bim`, Families adapter |
 | Kind | Bug |
-| Status | `ready` |
-| Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Status | `resolved` |
+| Upstream | [andymai/brepjs#2270](https://github.com/andymai/brepjs/issues/2270), closed by [andymai/brepjs#2271](https://github.com/andymai/brepjs/pull/2271) and [andymai/brepjs#2273](https://github.com/andymai/brepjs/pull/2273) in `brepjs@18.164.1` / `brepjs-bim@0.23.1` |
+| Last verified | 2026-09-02 |
+
+`#2271` composes inner Body Datum translations into the typed Product frame. `#2273` makes the
+IFC importer honour rectangle-profile `Position` and a single composed placement, so IFC
+round-trip bounds match the authored world Datum.
+
+Unrotated `ApproachSlab`, `BridgeDeck`, and `Footing` no longer shift by half their length and
+width. Both pitched `ApproachSlab` occurrences import at the authored upper-inner Datum; the
+first occurrence's `xMin` is `10021.783`.
+
+This repository consumed the release by removing the `roundTripPlacementGaps` exceptions in
+`tests/familyProjection.test.tsx` and enabling the pitched `ApproachSlab` world-bounds
+regression in `tests/fullModel.test.tsx`. `placedSolids()` without `parentFrame` remains
+relative to the containing spatial structure; world-bounds evidence is the IFC round-trip.
+
+## Filed
+
+### BREP-005: Preserve compound and voided Bodies on typed civil routes
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, Families adapter |
+| Kind | Bug and API design |
+| Status | `filed` |
+| Upstream | [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272), filed 2026-09-01 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
-`#2260` folds authored `tRotate` into the IFC frame, but typed civil routes still rebuild a
-rectangular envelope from semantic dimensions. Inner Datum translations that live in the CSG Body
-are not part of that frame.
+The civil Product routes synthesize typed specs from semantic envelope dimensions. This is exact
+for a rectangular Product. It is false for a compound or voided Product.
 
-On the unrotated leaf fixture, IFC round-trip shifts `ApproachSlab` by `[-250, -150, 0]`,
-`BridgeDeck` by `[-300, -150, 0]`, and `Footing` by `[-250, -150, 0]`. Those are half-dimension
-shifts, not rotation tolerance.
+`RoadRailing` authors two rails and repeated tapered posts. The typed route exports a solid
+guardrail panel. Each projected railing has 5.230 times the authored volume.
 
-On the full model, each pitched `ApproachSlab` still has the correct volume after projection, but
-`placedSolids()` and IFC import miss the upper-inner Datum. The first occurrence's authored
-`xMin` is `10021.783`; the placed BIM solid's `xMin` is `-3716.000`.
+`SpandrelWall` cuts paired arch openings. The typed route exports a solid box. Each projected wall
+has 1.963 times the authored volume.
 
-`composedOrigin()` only peels an outer literal translation chain. A Datum offset inside a rotated
-Body is therefore dropped when the typed spec is synthesized.
+The IFC writers also move both envelope Bodies across their transverse Datum. The focused leaf
+fixture records the Body and placement losses independently.
+
+`#2273` made IFC import match those projected envelopes. The remaining defect is that the
+projected Body is still the envelope, not the authored compound or voided solid.
+
+The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
+can preserve a richer parametric definition when the spec supports it.
 
 #### Reproduction
 
-Unrotated half-dimension case: `tests/familyProjection.test.tsx` asserts that classification and
-volume remain correct while those three IFC round-trip bounds remain different from the in-memory
-projection.
+Resolve and evaluate the model, project it through `familiesToBim`, and compare authored and typed
+BIM volumes for the two `RoadRailing` and four `SpandrelWall` occurrences.
 
-Pitched Datum case:
-
-1. Resolve the model built by `src/main.tsx`.
-2. Project it with `familiesToBim`.
-3. Compare authored world bounds with `placedSolids()` and with `toIfc` / `fromIfc`.
-
-`tests/fullModel.test.tsx` contains the pending regression:
-
-```ts
-it.todo('preserves the pitched ApproachSlab upper-inner Datum through BIM projection');
-```
+`tests/familyProjection.test.tsx` still asserts the known incorrect result: `RoadRailing`
+projected volume is more than twice the authored volume, and `SpandrelWall` projected volume is
+more than 1.5 times the authored volume. `tests/fullModel.test.tsx` keeps the intended equality
+checks pending.
 
 #### Expected result
 
-A typed Product must keep the authored world Datum after projection and IFC round-trip, including
-when the Datum offset is inside a rotated Body.
+At the Family projection seam, use a typed parametric IFC Body only when it matches the authored
+Family Body. Otherwise, preserve the exact authored Body or accept a Family-supplied typed
+specification.
+
+The IFC class must remain typed. An exact Body is not a request to downgrade the occurrence to a
+proxy.
 
 #### Acceptance criteria
 
-- Both pitched `ApproachSlab` occurrences have matching authored, placed, and IFC round-trip
-  world bounds.
-- Unrotated slabs and footings preserve corner and centre Datum origins without half-dimension
-  shifts.
-- Rectangular girders, stems, pads, and decks keep typed classification and volume.
+- A civil Product can opt into an exact evaluated Body, or supply a typed spec that describes the
+  same shape.
+- Body evaluation supports the multi-solid railing compound or defines a clear fusion step.
+- `RoadRailing` exports its posts and rails as `IfcRailing.GUARDRAIL`.
+- `SpandrelWall` exports its arch openings as `IfcWall`.
+- Authored and projected volume and world bounds agree within the established geometry tolerance.
+- Rectangular girders, stems, pads, and decks continue to use parametric swept solids.
+- The five-point `AbutmentSupportBeam` profile continues to use its supplied parametric profile.
+- Evaluator and model ownership rules remain explicit and leak-free.
 
 #### Local completion
 
-Enable the pending `ApproachSlab` world-bounds regression and remove the
-`roundTripPlacementGaps` exceptions in `tests/familyProjection.test.tsx`.
+Choose the upstream path for `RoadRailing` and `SpandrelWall`, add round-trip assertions, and
+remove the known envelope mismatch. See `LOCAL-006`.
+
+## Ready to file
 
 ### BREP-002: Add a typed exact-body IfcMember route
 
@@ -128,7 +170,7 @@ Enable the pending `ApproachSlab` world-bounds regression and remove the
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -171,7 +213,7 @@ upstream release.
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -214,7 +256,7 @@ release.
 | Kind | Bug and API enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -253,64 +295,6 @@ must use the authored name when present and generate a numbered fallback only wh
 Author the remaining donor occurrence names and descriptions after the upstream contract is
 available. See `LOCAL-003`.
 
-### BREP-005: Preserve compound and voided Bodies on typed civil routes
-
-| Field | Value |
-| --- | --- |
-| Target | `packages/brepjs-bim`, Families adapter |
-| Kind | Bug and API design |
-| Status | `ready` |
-| Upstream | Not filed |
-| Last verified | 2026-08-29 |
-
-#### Problem
-
-The civil Product routes synthesize typed specs from semantic envelope dimensions. This is exact
-for a rectangular Product. It is false for a compound or voided Product.
-
-`RoadRailing` authors two rails and repeated tapered posts. The typed route exports a solid
-guardrail panel. Each projected railing has 5.230 times the authored volume.
-
-`SpandrelWall` cuts paired arch openings. The typed route exports a solid box. Each projected wall
-has 1.963 times the authored volume.
-
-The IFC writers also move both envelope Bodies across their transverse Datum. The focused leaf
-fixture records the Body and placement losses independently.
-
-The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
-can preserve a richer parametric definition when the spec supports it.
-
-#### Reproduction
-
-Resolve and evaluate the model, project it through `familiesToBim`, and compare authored and typed
-BIM volumes for the two `RoadRailing` and four `SpandrelWall` occurrences.
-
-#### Expected result
-
-At the Family projection seam, use a typed parametric IFC Body only when it matches the authored
-Family Body. Otherwise, preserve the exact authored Body or accept a Family-supplied typed
-specification.
-
-The IFC class must remain typed. An exact Body is not a request to downgrade the occurrence to a
-proxy.
-
-#### Acceptance criteria
-
-- A civil Product can opt into an exact evaluated Body, or supply a typed spec that describes the
-  same shape.
-- Body evaluation supports the multi-solid railing compound or defines a clear fusion step.
-- `RoadRailing` exports its posts and rails as `IfcRailing.GUARDRAIL`.
-- `SpandrelWall` exports its arch openings as `IfcWall`.
-- Authored and projected volume and world bounds agree within the established geometry tolerance.
-- Rectangular girders, stems, pads, and decks continue to use parametric swept solids.
-- The five-point `AbutmentSupportBeam` profile continues to use its supplied parametric profile.
-- Evaluator and model ownership rules remain explicit and leak-free.
-
-#### Local completion
-
-Choose the upstream path for `RoadRailing` and `SpandrelWall`, add round-trip assertions, and
-remove the known envelope mismatch. See `LOCAL-006`.
-
 ### BREP-006: Do not emit Invalid ExpressID errors for successful IFC writes
 
 | Field | Value |
@@ -319,7 +303,7 @@ remove the known envelope mismatch. See `LOCAL-006`.
 | Kind | Bug |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -329,7 +313,7 @@ remove the known envelope mismatch. See `LOCAL-006`.
 [WEB-IFC][error][GetLineType()] Attempt to Access Invalid ExpressID
 ```
 
-For this model, IDs `11`, `167`, `199`, `231`, and `263` are each reported twice. The command
+For this model, IDs `11`, `169`, `201`, `233`, and `265` are each reported twice. The command
 still exits with status 0 and writes the file. Successful export therefore looks broken and
 pollutes CLI and CI output.
 
@@ -360,7 +344,7 @@ not part of the required contract.
 | Kind | API design |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -400,7 +384,7 @@ GlobalIds.
 | Kind | Enhancement |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -436,7 +420,7 @@ exact Bodies.
 | Kind | API design |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -475,7 +459,7 @@ container a false Body.
 | Kind | Bug |
 | Status | `candidate` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Problem
 
@@ -488,6 +472,10 @@ In `tests/familyProjection.test.tsx`, the authored fixture bounds are
 `[1000, 1600, 1880, 2000, 3000, 3180]`. `placedSolids()` on the projected Beam returns
 `[1000, 1600, 2000, 2180, 3000, 3120]`. Importing the written IFC returns the authored bounds and
 the same volume.
+
+`#2273` made rectangle-profile IFC import match `placedSolids()`. This arbitrary-profile Beam is
+unchanged: IFC import still matches the authored bounds, and eager `placedSolids()` still does
+not.
 
 #### Expected result
 
@@ -506,41 +494,6 @@ profile coordinates to the Beam's transverse and vertical axes.
 - Positive and negative asymmetric profile coordinates retain their sign.
 - Core rectangular Beam profiles keep their current orientation.
 
-### BREP-013: Reconstruct tessellated proxy and Earthworks Fill Bodies on IFC import
-
-| Field | Value |
-| --- | --- |
-| Target | `packages/brepjs-bim`, IFC importer |
-| Kind | Bug |
-| Status | `candidate` |
-| Upstream | Not filed |
-| Last verified | 2026-08-29 |
-
-#### Problem
-
-The Families adapter preserves `ArchSegment` and `BridgeNameSign` as proxy Bodies and preserves
-`EarthFill` as a typed exact Body. The IFC writer emits tessellated representations for all three.
-`fromIfc()` imports their categories but returns `geometry.fidelity = NONE` and `solid = null` in
-the focused leaf fixture.
-
-#### Expected result
-
-Closed tessellated Bodies written by `toIfc()` should return as `TESSELLATED_MANIFOLD` solids with
-matching world bounds and volume. If a mesh is genuinely open, the importer should return
-`TESSELLATED_LOSSY` with mesh data and a specific diagnostic.
-
-#### Work needed before filing
-
-- Reduce one proxy and one Earthworks Fill case to raw IFC representations.
-- Check whether the writer output or importer traversal drops the tessellated item.
-- Verify upstream `main` and search for an existing issue.
-
-#### Acceptance criteria
-
-- Proxy and Earthworks Fill Bodies written by `toIfc()` reconstruct through `fromIfc()`.
-- Imported classification, predefined type, material, world bounds, and volume remain available.
-- The importer reports a focused diagnostic for unsupported or invalid tessellation.
-
 ## Deferred
 
 ### BREP-009: Support an IFC4X3_ADD2 schema token
@@ -551,7 +504,7 @@ matching world bounds and volume. If a mesh is genuinely open, the importer shou
 | Kind | Enhancement |
 | Status | `deferred` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Difference
 
@@ -575,7 +528,7 @@ first-class ADD2 support.
 | Kind | Enhancement |
 | Status | `deferred` |
 | Upstream | Not filed |
-| Last verified | 2026-08-29 |
+| Last verified | 2026-09-02 |
 
 #### Difference
 
@@ -663,8 +616,8 @@ another private repository path.
 
 Document the required `brepjs`, `brepjs-families`, and `brepjs-bim` versions or peer dependency
 ranges, the millimetre unit contract, the civil-semantics dependency, and any required runtime
-initialization. BREP-014 must preserve Datum-aware placement before the package can claim
-placement portability.
+initialization. Datum-aware placement is available after BREP-014; remaining exporter gaps for
+compound and voided Bodies are BREP-005.
 
 Acceptance criteria:
 
@@ -710,8 +663,8 @@ not add a `geo-reference` geometry Product.
 ### LOCAL-004: Remove the placement workaround after BREP-001
 
 Done on 2026-08-29 with `brepjs@18.164.0`. `spatialGroup` and `placedGeometry` now forward
-authored `tRotate`/`tTranslate` lists. The remaining pitched `ApproachSlab` world-bounds
-regression is BREP-014, not a local workaround.
+authored `tRotate`/`tTranslate` lists. The pitched `ApproachSlab` world-bounds regression was
+consumed with BREP-014 on `brepjs@18.164.1`.
 
 ### LOCAL-010: Remove the project font from BridgeNameSign
 
@@ -720,8 +673,8 @@ scope decision. `BridgeNameSign` keeps its existing JSX props, normalizes arbitr
 to uppercase metadata, and authors one plain plate with depth `plateDepth + reliefDepth`. It has no
 asset initialization or project module dependency.
 
-BREP-003 remains responsible for typed `IfcSign` classification. BREP-013 tracks the current IFC
-reader failure to reconstruct the proxy Body.
+BREP-003 remains responsible for typed `IfcSign` classification. BREP-013 is resolved: the IFC
+reader now reconstructs the tessellated proxy Body as `TESSELLATED_MANIFOLD`.
 
 Acceptance criteria:
 
@@ -729,8 +682,8 @@ Acceptance criteria:
 - Text metadata normalization and the plain-plate topology are documented. Implemented.
 - A clean process can evaluate the sign after normal `brepjs` initialization. Implemented in the
   focused Family tests; a published consumer fixture remains under LOCAL-009.
-- The plain plate remains one exact authored Body before projection. Typed Sign classification and
-  proxy import reconstruction remain upstream gaps.
+- The plain plate remains one exact authored Body before projection. Typed Sign classification
+  remains an upstream gap (BREP-003). Proxy Body import reconstruction is resolved (BREP-013).
 
 ### LOCAL-011: State and validate each Family's parametric topology
 

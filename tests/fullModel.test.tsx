@@ -1,7 +1,7 @@
 /** @jsxImportSource brepjs-families */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { csg, init, isShape3D, measureVolume, unwrap } from 'brepjs';
+import { csg, getBounds, init, isShape3D, measureVolume, unwrap, type Bounds3D } from 'brepjs';
 import { disposeImportedModel, familiesToBim, fromIfc, toIfc } from 'brepjs-bim';
 import {
   civilSemantics,
@@ -294,7 +294,66 @@ describe('complete declarative infrastructure bridge model', () => {
     }
   }, 60_000);
 
-  it.todo('preserves the pitched ApproachSlab upper-inner Datum through BIM projection');
+  it('preserves the pitched ApproachSlab upper-inner Datum through BIM projection', async () => {
+    const root = resolve(await buildInfraBridge());
+    const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: PROJECT_SPEC,
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(approachSlabs).toHaveLength(2);
+    const roundTrip: Array<{
+      readonly guid: string;
+      readonly authoredBounds: readonly number[];
+    }> = [];
+
+    for (const approachSlab of approachSlabs) {
+      const localId = projected.idByKeyPath.get(approachSlab.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const slab = bim.getElement(localId);
+      expect(slab?.category).toBe('SLAB');
+      if (slab?.category !== 'SLAB') continue;
+
+      const authoredShape = evaluated.byKeyPath.get(approachSlab.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok) continue;
+      const authoredBounds = boundsTuple(getBounds(authoredShape.value));
+      expect(slab.spec.axisX).not.toEqual([1, 0, 0]);
+      roundTrip.push({ guid: slab.guid, authoredBounds });
+    }
+
+    expect(roundTrip[0]?.authoredBounds[0]).toBeCloseTo(10_021.783, 2);
+
+    const bytes = unwrap(await toIfc(bim, IFC_META));
+    const imported = unwrap(await fromIfc(bytes));
+    try {
+      expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
+      for (const expected of roundTrip) {
+        const slab = imported.elements.find(({ guid }) => guid === expected.guid);
+        expect(slab?.category).toBe('SLAB');
+        expect(slab?.geometry.fidelity).toBe('PARAMETRIC');
+        const solid = slab?.geometry.solid;
+        expect(solid).not.toBeNull();
+        if (solid === null || solid === undefined) continue;
+        expectTupleClose(
+          boundsTuple(getBounds(solid)),
+          expected.authoredBounds,
+          2,
+          `${expected.guid} IFC round-trip`
+        );
+      }
+    } finally {
+      disposeImportedModel(imported);
+    }
+  }, 60_000);
 
   it('preserves both signed abutment-support profiles through typed BIM projection', async () => {
     const root = resolve(await buildInfraBridge());
@@ -614,4 +673,20 @@ function categoryCounts(categories: readonly string[]): Readonly<Record<string, 
   const counts: Record<string, number> = {};
   for (const category of categories) counts[category] = (counts[category] ?? 0) + 1;
   return counts;
+}
+
+function boundsTuple(bounds: Bounds3D): readonly number[] {
+  return [bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, bounds.zMin, bounds.zMax];
+}
+
+function expectTupleClose(
+  actual: readonly number[],
+  expected: readonly number[],
+  precision: number,
+  label: string
+): void {
+  expect(actual).toHaveLength(expected.length);
+  expected.forEach((value, index) =>
+    expect(actual[index], `${label} bound ${index}`).toBeCloseTo(value, precision)
+  );
 }
