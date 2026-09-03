@@ -26,8 +26,8 @@ layout derivations stay private.
   and expose no disposable handles.
 - Use TypeScript JSX with `jsx: "react-jsx"`, `jsxImportSource: "brepjs-families"`, and explicit
   `.ts` or `.tsx` import extensions.
-- The current source is verified with `brepjs@18.164.3`, `brepjs-families@0.12.0`,
-  `brepjs-bim@0.23.2`, `occt-wasm@4.3.3`, and `zod@4.5.4`.
+- The current source is verified with `brepjs@19.0.1`, `brepjs-families@0.12.0`,
+  `brepjs-bim@0.24.0`, `occt-wasm@4.4.0`, and `zod@4.5.4`.
 - `BridgeNameSign` has no font or asset initialization. Its text is uppercase metadata, and its
   Body is a plain plate.
 
@@ -60,16 +60,17 @@ separate migration decision and tests.
 
 ## Projection status
 
-The authored CSG Body remains authoritative. With `brepjs-bim@0.23.2`, simple rectangular
+The authored CSG Body remains authoritative. With `brepjs-bim@0.24.0`, simple rectangular
 beams, columns, slabs, and footings preserve classification, Body, and Datum-aware placement.
-The typed `AbutmentSupportBeam` IFC output preserves its authored profile, but the eager
-`BimModel` solid swaps the profile axes (BREP-012). `ArchSegment` and `BridgeNameSign`
+Wall and railing `.geometry` is a `ProductBody` union; volume and bounds checks use
+`placedSolids()`. The typed `AbutmentSupportBeam` IFC output preserves its authored profile, but
+the eager `BimModel` solid swaps the profile axes (BREP-012). `ArchSegment` and `BridgeNameSign`
 preserve their Bodies through proxy projection but lose typed classification (BREP-002,
 BREP-003). The IFC reader reconstructs those tessellated Bodies as `TESSELLATED_MANIFOLD`
 (BREP-013). `EarthFill` preserves a typed exact Body.
 
 `RoadRailing` and `SpandrelWall` retain typed classification, but the adapter still rebuilds
 envelope solids and does not keep the compound posts or arch openings (BREP-005). The IFC
-importer can now read every Body representation item; that does not restore the authored
-geometry until the exact-Body writer route lands. The separate upstream ledger contains
-measured reproductions and acceptance criteria.
+importer can now read every Body representation item, and `#2286` published the exact-Body
+writer contract, but the Families adapter does not yet use it. The separate upstream ledger
+contains measured reproductions and acceptance criteria.

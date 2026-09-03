@@ -2,7 +2,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { csg, getBounds, init, isShape3D, measureVolume, unwrap, type Bounds3D } from 'brepjs';
-import { disposeImportedModel, familiesToBim, fromIfc, toIfc } from 'brepjs-bim';
+import { disposeImportedModel, familiesToBim, fromIfc, placedSolids, toIfc } from 'brepjs-bim';
 import {
   civilSemantics,
   el,
@@ -477,15 +477,17 @@ describe('complete declarative infrastructure bridge model', () => {
       if (authoredShape === undefined || !authoredShape.ok || !isShape3D(authoredShape.value)) {
         continue;
       }
-      const projectedGeometry = projectedElement.geometry;
-      expect(projectedGeometry).not.toBeNull();
-      if (projectedGeometry === null) continue;
-      expect(isShape3D(projectedGeometry)).toBe(true);
-      if (!isShape3D(projectedGeometry)) continue;
-      expect(unwrap(measureVolume(projectedGeometry))).toBeCloseTo(
-        unwrap(measureVolume(authoredShape.value)),
-        3
-      );
+      const projectedShapes = unwrap(placedSolids(projectedElement));
+      try {
+        expect(projectedShapes.length).toBeGreaterThan(0);
+        const projectedVolume = projectedShapes.reduce(
+          (sum, shape) => sum + unwrap(measureVolume(shape)),
+          0
+        );
+        expect(projectedVolume).toBeCloseTo(unwrap(measureVolume(authoredShape.value)), 3);
+      } finally {
+        for (const shape of projectedShapes) shape[Symbol.dispose]();
+      }
     }
   }, 60_000);
 

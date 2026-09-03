@@ -7,12 +7,14 @@ ledger. Local implementation tickets still belong under `.scratch/` as described
 
 Tested on 2026-09-03 with:
 
-- `brepjs@18.164.3`
-- `brepjs-bim@0.23.2`
+- `brepjs@19.0.1`
+- `brepjs-bim@0.24.0`
 - `brepjs-families@0.12.0`
-- `occt-wasm@4.3.3`
+- `occt-wasm@4.4.0`
 
-The 2026-09-03 bump consumed [andymai/brepjs#2278](https://github.com/andymai/brepjs/pull/2278) (`brepjs-bim@0.23.2`: multi-item IFC Body import) and [andymai/brepjs#2284](https://github.com/andymai/brepjs/pull/2284) (`brepjs@18.164.3`: rigid `applyMatrix`). Neither closes [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272). The full suite still reports 58 passing tests and the two pending RoadRailing / SpandrelWall exact-Body checks.
+The 2026-09-03 bump consumed [andymai/brepjs#2278](https://github.com/andymai/brepjs/pull/2278) (multi-item IFC Body import, already in `0.23.2`) and [andymai/brepjs#2286](https://github.com/andymai/brepjs/pull/2286) (`brepjs-bim@0.24.0`: wall and railing `.geometry` is a `ProductBody` union; `takeExactProductBody()` exists). `brepjs@19.0.0` / `19.0.1` are the coordinated root majors for that bim-only breaking marker; the kernel tarball did not change. `occt-wasm@4.4.0` adds `chamferAsymmetric` and is unused here.
+
+None of those releases close [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272). Published `0.24.0` still rebuilds `RoadRailing` and `SpandrelWall` from semantic envelopes. The full suite reports 58 passing tests and the two pending exact-Body checks. Wall and railing callers must use `placedSolids()` or `bodySolids()`; this repository updated the remaining exact-Family volume check accordingly.
 
 ## Policy
 
@@ -105,7 +107,7 @@ relative to the containing spatial structure; world-bounds evidence is the IFC r
 | Kind | Bug and API design |
 | Status | `filed` |
 | Upstream | [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272), filed 2026-09-01 |
-| Last verified | 2026-09-03 |
+| Last verified | 2026-09-03 (`brepjs-bim@0.24.0`) |
 
 #### Problem
 
@@ -125,17 +127,25 @@ fixture records the Body and placement losses independently.
 reads every Body representation item, which is a prerequisite for a multi-solid railing
 round-trip. Importing `fixtures/Donor-Infra-Bridge.ifc` with the schema token rewritten to
 `IFC4X3` reconstructs each donor `bridge road railing` as 14 `COMPLETE`
-`TESSELLATED_MANIFOLD` solids. That confirms the multi-item reader on the donor Body. This
-model's export is still one parametric envelope.
+`TESSELLATED_MANIFOLD` solids. That confirms the multi-item reader on the donor Body.
+
+`#2286` (`brepjs-bim@0.24.0`) published the shared `ProductBody` contract and
+`takeExactProductBody()`. Wall and railing `.geometry` is now `PARAMETRIC | EXACT`. Exact
+multi-solid Bodies serialize as separate IFC items, and exact wall `NetVolume` comes from the
+authoritative Body. That is the writer/model half of `#2272`. This model's export is still one
+parametric envelope, because the Families adapter does not yet hand evaluated civil wall and
+railing Bodies to that contract.
 
 The remaining defect is that the projected Body is still the envelope, not the authored
-compound or voided solid. After `#2272` lands, round-trip assertions should use
+compound or voided solid. After the Families adapter lands, round-trip assertions should use
 `geometry.solids` / `completeness` rather than the one-solid `geometry.solid` alias.
 
-Installed `0.23.2` still materializes an exact Body only for Earthworks Fill. The existing
-helper rejects compounds (`solids.length !== 1`), so `RoadRailing`'s `csg.compound` cannot
-reuse it without a multi-solid or documented fuse step. `RailingSpec.infill: 'POSTED'` is a
-generic box post/rail, not this Family's six-point tapered profile, and is not a workaround.
+Published `0.24.0` still materializes an exact Body only for Earthworks Fill. `RailingSpec.infill:
+'POSTED'` is a generic box post/rail, not this Family's six-point tapered profile, and is not a
+workaround. A packed build of the unreleased Families adapter branch
+(`codex/2272-typed-civil-families`) makes authored, eager-projected, and IFC-imported volumes
+agree for `RoadRailing` and `SpandrelWall` at the existing `toBeCloseTo` precisions. That branch
+is not a consumed release.
 
 The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
 can preserve a richer parametric definition when the spec supports it.
@@ -328,7 +338,7 @@ available. See `LOCAL-003`.
 | Kind | Bug |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-09-03 |
+| Last verified | 2026-09-03 (`brepjs-bim@0.24.0`) |
 
 #### Problem
 
