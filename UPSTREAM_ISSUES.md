@@ -127,6 +127,11 @@ round-trip. The remaining defect is that the projected Body is still the envelop
 authored compound or voided solid. After `#2272` lands, round-trip assertions should use
 `geometry.solids` / `completeness` rather than the one-solid `geometry.solid` alias.
 
+Installed `0.23.2` still materializes an exact Body only for Earthworks Fill. The existing
+helper rejects compounds (`solids.length !== 1`), so `RoadRailing`'s `csg.compound` cannot
+reuse it without a multi-solid or documented fuse step. `RailingSpec.infill: 'POSTED'` is a
+generic box post/rail, not this Family's six-point tapered profile, and is not a workaround.
+
 The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
 can preserve a richer parametric definition when the spec supports it.
 

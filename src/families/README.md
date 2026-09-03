@@ -26,16 +26,16 @@ layout derivations stay private.
   and expose no disposable handles.
 - Use TypeScript JSX with `jsx: "react-jsx"`, `jsxImportSource: "brepjs-families"`, and explicit
   `.ts` or `.tsx` import extensions.
-- The current source is verified with `brepjs@18.164.0`, `brepjs-families@0.12.0`,
-  `brepjs-bim@0.23.0`, and `zod@4.5.2`.
+- The current source is verified with `brepjs@18.164.3`, `brepjs-families@0.12.0`,
+  `brepjs-bim@0.23.2`, `occt-wasm@4.3.3`, and `zod@4.5.4`.
 - `BridgeNameSign` has no font or asset initialization. Its text is uppercase metadata, and its
   Body is a plain plate.
 
 `familyPlacement.ts` keeps the authored `transform` list on the Geometry intrinsic.
-`familiesToBim` folds `tRotate` and `tTranslate` into IFC `origin`/`axisX`/`axisZ`. Typed
-routes still synthesize rectangular envelopes from semantic dimensions, so Datum-aware
-slabs and footings can shift after IFC round-trip; that remaining adapter gap is tracked in
-[`UPSTREAM_ISSUES.md`](../../UPSTREAM_ISSUES.md).
+`familiesToBim` folds `tRotate` and `tTranslate` into IFC `origin`/`axisX`/`axisZ`, including
+Datum-aware slab and footing origins. Typed routes still synthesize rectangular envelopes
+from semantic dimensions for compound and voided Bodies; that remaining adapter gap is
+[`UPSTREAM_ISSUES.md`](../../UPSTREAM_ISSUES.md) BREP-005 / [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272).
 
 ## Fixed topology and Datum ledger
 
@@ -60,14 +60,16 @@ separate migration decision and tests.
 
 ## Projection status
 
-The authored CSG Body remains authoritative. With `brepjs-bim@0.23.0`, the simple rectangular
-beams and columns preserve classification, Body, and placement. The typed
-`AbutmentSupportBeam` IFC output preserves its authored profile, but the eager `BimModel` solid
-swaps the profile axes. `ArchSegment` and `BridgeNameSign` preserve their Bodies through proxy
-projection but lose typed classification. `EarthFill` preserves a typed exact Body. The current
-IFC reader does not reconstruct those three tessellated Bodies.
+The authored CSG Body remains authoritative. With `brepjs-bim@0.23.2`, simple rectangular
+beams, columns, slabs, and footings preserve classification, Body, and Datum-aware placement.
+The typed `AbutmentSupportBeam` IFC output preserves its authored profile, but the eager
+`BimModel` solid swaps the profile axes (BREP-012). `ArchSegment` and `BridgeNameSign`
+preserve their Bodies through proxy projection but lose typed classification (BREP-002,
+BREP-003). The IFC reader reconstructs those tessellated Bodies as `TESSELLATED_MANIFOLD`
+(BREP-013). `EarthFill` preserves a typed exact Body.
 
-`RoadRailing` and `SpandrelWall` retain typed classification, but the adapter rebuilds envelope
-solids and shifts their IFC transverse placement. Slab and footing IFC output also shifts
-Datum-aware origins by half dimensions, including unrotated cases. The separate upstream ledger
-contains measured reproductions and acceptance criteria.
+`RoadRailing` and `SpandrelWall` retain typed classification, but the adapter still rebuilds
+envelope solids and does not keep the compound posts or arch openings (BREP-005). The IFC
+importer can now read every Body representation item; that does not restore the authored
+geometry until the exact-Body writer route lands. The separate upstream ledger contains
+measured reproductions and acceptance criteria.
