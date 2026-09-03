@@ -123,8 +123,13 @@ fixture records the Body and placement losses independently.
 
 `#2273` made IFC import match those projected envelopes. `#2278` (`brepjs-bim@0.23.2`) now
 reads every Body representation item, which is a prerequisite for a multi-solid railing
-round-trip. The remaining defect is that the projected Body is still the envelope, not the
-authored compound or voided solid. After `#2272` lands, round-trip assertions should use
+round-trip. Importing `fixtures/Donor-Infra-Bridge.ifc` with the schema token rewritten to
+`IFC4X3` reconstructs each donor `bridge road railing` as 14 `COMPLETE`
+`TESSELLATED_MANIFOLD` solids. That confirms the multi-item reader on the donor Body. This
+model's export is still one parametric envelope.
+
+The remaining defect is that the projected Body is still the envelope, not the authored
+compound or voided solid. After `#2272` lands, round-trip assertions should use
 `geometry.solids` / `completeness` rather than the one-solid `geometry.solid` alias.
 
 Installed `0.23.2` still materializes an exact Body only for Earthworks Fill. The existing
@@ -181,7 +186,7 @@ remove the known envelope mismatch. See `LOCAL-006`.
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 
 #### Problem
 
@@ -192,6 +197,11 @@ remove the known envelope mismatch. See `LOCAL-006`.
 
 An arch band cannot use a rectangular envelope extrusion. Its authored Body is the extrusion of
 the band between its inner and outer curves.
+
+`fromIfc` also omits donor `IfcMember` rows. On 2026-09-03, importing the donor fixture with
+the schema token rewritten to `IFC4X3` returned 38 of 50 products; the eight arch segments
+were absent rather than classified as PROXY. A typed Member route must cover import as well as
+export.
 
 #### Reproduction
 
@@ -224,7 +234,7 @@ upstream release.
 | Kind | Enhancement |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 
 #### Problem
 
@@ -234,6 +244,10 @@ category, `SignSpec`,
 
 The sign Body is now one plain authored plate, with text carried as metadata. It still falls back
 to `IfcBuildingElementProxy` because no typed Sign route exists.
+
+`fromIfc` also omits donor `IfcSign` rows. The same 2026-09-03 donor import dropped the four
+name signs; they are the rest of the 12-product gap beside the omitted members. A typed Sign
+route must cover import as well as export.
 
 #### Reproduction
 
@@ -314,7 +328,7 @@ available. See `LOCAL-003`.
 | Kind | Bug |
 | Status | `ready` |
 | Upstream | Not filed |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 
 #### Problem
 
@@ -511,25 +525,28 @@ profile coordinates to the Beam's transverse and vertical axes.
 
 | Field | Value |
 | --- | --- |
-| Target | `packages/brepjs-bim`, IFC writer |
+| Target | `packages/brepjs-bim`, IFC writer and importer |
 | Kind | Enhancement |
 | Status | `deferred` |
 | Upstream | Not filed |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 
 #### Difference
 
-`toIfc` accepts `IFC4` or `IFC4X3`. The donor header uses `IFC4X3_ADD2`.
+`toIfc` accepts `IFC4` or `IFC4X3`. The donor header uses `IFC4X3_ADD2`. `fromIfc` rejects that
+token with `SCHEMA_UNSUPPORTED`. Rewriting `FILE_SCHEMA` to `IFC4X3` lets the same bytes import
+on `brepjs-bim@0.23.2`; the workaround is local to the probe, not part of export.
 
 #### Desired result
 
-Allow `IFC4X3_ADD2` when the selected writer backend can emit and validate that schema identifier.
-Keep `IFC4X3` as a supported value.
+Treat `IFC4X3_ADD2` as an alias of `IFC4X3` on both write and read when the selected backend
+can emit or parse that identifier. Keep `IFC4X3` as a supported value.
 
 #### Reactivate when
 
-An IFC receiver rejects `IFC4X3`, requires the exact ADD2 header token, or the writer backend adds
-first-class ADD2 support.
+An IFC receiver rejects `IFC4X3`, requires the exact ADD2 header token, this repository needs to
+import the donor fixture without rewriting the header, or the writer backend adds first-class
+ADD2 support.
 
 ### BREP-010: Make the IFC length unit configurable
 
