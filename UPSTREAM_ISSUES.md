@@ -5,11 +5,14 @@ This file tracks changes that this repository needs from
 ledger. Local implementation tickets still belong under `.scratch/` as described in
 `docs/agents/issue-tracker.md`.
 
-Tested on 2026-09-02 with:
+Tested on 2026-09-03 with:
 
-- `brepjs@18.164.1`
-- `brepjs-bim@0.23.1`
+- `brepjs@18.164.3`
+- `brepjs-bim@0.23.2`
 - `brepjs-families@0.12.0`
+- `occt-wasm@4.3.3`
+
+The 2026-09-03 bump consumed [andymai/brepjs#2278](https://github.com/andymai/brepjs/pull/2278) (`brepjs-bim@0.23.2`: multi-item IFC Body import) and [andymai/brepjs#2284](https://github.com/andymai/brepjs/pull/2284) (`brepjs@18.164.3`: rigid `applyMatrix`). Neither closes [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272). The full suite still reports 58 passing tests and the two pending RoadRailing / SpandrelWall exact-Body checks.
 
 ## Policy
 
@@ -102,7 +105,7 @@ relative to the containing spatial structure; world-bounds evidence is the IFC r
 | Kind | Bug and API design |
 | Status | `filed` |
 | Upstream | [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272), filed 2026-09-01 |
-| Last verified | 2026-09-02 |
+| Last verified | 2026-09-03 |
 
 #### Problem
 
@@ -118,8 +121,11 @@ has 1.963 times the authored volume.
 The IFC writers also move both envelope Bodies across their transverse Datum. The focused leaf
 fixture records the Body and placement losses independently.
 
-`#2273` made IFC import match those projected envelopes. The remaining defect is that the
-projected Body is still the envelope, not the authored compound or voided solid.
+`#2273` made IFC import match those projected envelopes. `#2278` (`brepjs-bim@0.23.2`) now
+reads every Body representation item, which is a prerequisite for a multi-solid railing
+round-trip. The remaining defect is that the projected Body is still the envelope, not the
+authored compound or voided solid. After `#2272` lands, round-trip assertions should use
+`geometry.solids` / `completeness` rather than the one-solid `geometry.solid` alias.
 
 The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
 can preserve a richer parametric definition when the spec supports it.
