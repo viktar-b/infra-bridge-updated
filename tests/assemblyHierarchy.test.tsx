@@ -15,7 +15,7 @@ import { RoadPier } from '../src/assemblies/roadPier.tsx';
 import { RoadSite } from '../src/assemblies/roadSite.tsx';
 import { RoadSuperstructure } from '../src/assemblies/roadSuperstructure.tsx';
 import { MATERIALS } from '../src/materials.ts';
-import { RAIL_BRIDGE_SET_OUT, ROAD_BRIDGE_SET_OUT } from '../src/setout.ts';
+import { RAIL_BRIDGE_SET_OUT, ROAD_BRIDGE_SET_OUT, ROAD_SITE_SET_OUT } from '../src/setout.ts';
 
 const roadPierDimensions = {
   footingLength: ROAD_BRIDGE_SET_OUT.piers.footing.length,
@@ -250,7 +250,7 @@ describe('owned infrastructure Assemblies', () => {
     const root = resolve(<RoadSite key="road-site" />);
     expect(root).toMatchObject({
       type: 'RoadSite',
-      semantics: { kind: 'site', properties: { name: 'Road river bridge site' } },
+      semantics: { kind: 'site', properties: { name: ROAD_SITE_SET_OUT.name } },
     });
     expect(childKeys(root)).toEqual(['road-river-bridge']);
   });

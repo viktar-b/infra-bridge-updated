@@ -2,8 +2,13 @@
 
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
-import { spatialGroup, transformProp } from '../placement.ts';
-import { RAIL_SITE_OCCURRENCES, railBridgeKey, type RailSiteOccurrenceKey } from '../setout.ts';
+import { placement, spatialGroup, transformProp } from '../placement.ts';
+import {
+  RAIL_SITE_OCCURRENCES,
+  railBridgeKey,
+  railSiteOccurrence,
+  type RailSiteOccurrenceKey,
+} from '../setout.ts';
 import { RailArchBridge } from './railArchBridge.tsx';
 
 const railSiteOccurrenceKeys = RAIL_SITE_OCCURRENCES.map(({ occurrenceKey }) => occurrenceKey) as [
@@ -34,9 +39,15 @@ function semantics({ siteName }: RailSiteProps) {
 /** Parameterized civil Site containing one keyed rail-arch Bridge occurrence. */
 export const RailSite = family<RailSiteProps, RailSiteInput>(
   'RailSite',
-  ({ occurrenceKey, bridgeName, transform }) =>
-    spatialGroup(transform, [
-      <RailArchBridge key={railBridgeKey(occurrenceKey)} name={bridgeName} />,
-    ]),
+  ({ occurrenceKey, bridgeName, transform }) => {
+    const { bridgeBearingFromSiteDegrees } = railSiteOccurrence(occurrenceKey);
+    return spatialGroup(transform, [
+      <RailArchBridge
+        key={railBridgeKey(occurrenceKey)}
+        name={bridgeName}
+        transform={placement([0, 0, 0], bridgeBearingFromSiteDegrees)}
+      />,
+    ]);
+  },
   { props: railSiteProps, semantics }
 );
