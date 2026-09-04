@@ -19,7 +19,7 @@ import { MATERIALS } from '../src/materials.ts';
 import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
 import { InfraBridge } from '../src/model/infraBridge.tsx';
 import { buildInfraBridge } from '../src/main.tsx';
-import { EMPTY_CIVIL_SITES, RAIL_SITE_OCCURRENCES, railBridgeKey, railSiteKey } from '../src/setout.ts';
+import { EMPTY_CIVIL_SITES, RAIL_SITE_OCCURRENCES, ROAD_SITE_SET_OUT, railBridgeKey, railSiteKey } from '../src/setout.ts';
 
 beforeAll(async () => {
   await init();
@@ -174,14 +174,16 @@ describe('complete declarative infrastructure bridge model', () => {
         siteKey: keyPath.slice(keyPath.lastIndexOf('/') + 1),
         siteName: semantics?.properties?.['name'],
         origin: localOriginFrom(localTransforms),
+        bearingDegrees: localBearingFrom(localTransforms),
         bridgeKey: firstChildLocalKey(children),
         rotated: localTransforms.some((op) => op.op === 'rotate'),
       }))
     ).toEqual(
-      RAIL_SITE_OCCURRENCES.map(({ occurrenceKey, siteName, origin }) => ({
+      RAIL_SITE_OCCURRENCES.map(({ occurrenceKey, siteName, origin, bearingDegrees }) => ({
         siteKey: railSiteKey(occurrenceKey),
         siteName,
         origin,
+        bearingDegrees,
         bridgeKey: railBridgeKey(occurrenceKey),
         rotated: true,
       }))
@@ -258,8 +260,8 @@ describe('complete declarative infrastructure bridge model', () => {
     const moved = projectFullModel(root, evaluator);
     using movedModel = moved.model;
 
-    const unmovedOrigin = siteOrigin(unmovedModel, 'Road river bridge site');
-    const movedOrigin = siteOrigin(movedModel, 'Road river bridge site');
+    const unmovedOrigin = siteOrigin(unmovedModel, ROAD_SITE_SET_OUT.name);
+    const movedOrigin = siteOrigin(movedModel, ROAD_SITE_SET_OUT.name);
     expect(unmovedOrigin).toEqual([17_320.508, 30_000, 0]);
     expect(movedOrigin).toEqual([18_320.508, 32_000, 3_000]);
   });
@@ -901,6 +903,11 @@ function localOriginFrom(
 ): readonly [number, number, number] {
   const op = ops.find((item) => item.op === 'translate');
   return op?.op === 'translate' ? op.v : [0, 0, 0];
+}
+
+function localBearingFrom(ops: ResolvedElement['localTransforms']): number {
+  const op = ops.find((item) => item.op === 'rotate');
+  return op?.op === 'rotate' ? op.angleDeg : 0;
 }
 
 function categoryCounts(categories: readonly string[]): Readonly<Record<string, number>> {

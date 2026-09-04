@@ -1,5 +1,6 @@
 /** Human-authored civil control points and bearings, in millimetres and degrees. */
 export const ROAD_SITE_SET_OUT = {
+  name: 'road river bridge - site',
   origin: [17_320.508, 30_000, 0] as const,
   bearingDegrees: 120,
 } as const;
@@ -180,17 +181,17 @@ export function roadDeckSetOut({
 export const RAIL_SITE_OCCURRENCES = [
   {
     occurrenceKey: '01',
-    siteName: 'Rail bridge site 01',
+    siteName: 'rail river bridge - site',
     bridgeName: 'Rail bridge',
     origin: [17_320.508, 50_000, 0] as const,
     bearingDegrees: 60,
   },
   {
     occurrenceKey: '02',
-    siteName: 'Rail bridge site 02',
+    siteName: 'road rail bridge - site',
     bridgeName: 'Rail bridge',
     origin: [34_641.016, 40_000, 0] as const,
-    bearingDegrees: 60,
+    bearingDegrees: 120,
   },
 ] as const;
 

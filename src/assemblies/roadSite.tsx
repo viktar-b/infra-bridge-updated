@@ -3,11 +3,11 @@
 import { civilSemantics, family } from 'brepjs-families';
 import { z } from 'zod';
 import { placement, spatialGroup, transformProp } from '../placement.ts';
-import { ROAD_BRIDGE_DATUM } from '../setout.ts';
+import { ROAD_BRIDGE_DATUM, ROAD_SITE_SET_OUT } from '../setout.ts';
 import { RoadGirderBridge } from './roadGirderBridge.tsx';
 
 const roadSiteProps = z.object({
-  name: z.string().trim().min(1).default('Road river bridge site'),
+  name: z.string().trim().min(1).default(ROAD_SITE_SET_OUT.name),
   transform: transformProp,
 });
 
