@@ -176,17 +176,27 @@ describe('complete declarative infrastructure bridge model', () => {
         origin: localOriginFrom(localTransforms),
         bearingDegrees: localBearingFrom(localTransforms),
         bridgeKey: firstChildLocalKey(children),
+        bridgeBearingFromSiteDegrees: localBearingFrom(children[0]?.localTransforms ?? []),
         rotated: localTransforms.some((op) => op.op === 'rotate'),
       }))
     ).toEqual(
-      RAIL_SITE_OCCURRENCES.map(({ occurrenceKey, siteName, origin, bearingDegrees }) => ({
-        siteKey: railSiteKey(occurrenceKey),
-        siteName,
-        origin,
-        bearingDegrees,
-        bridgeKey: railBridgeKey(occurrenceKey),
-        rotated: true,
-      }))
+      RAIL_SITE_OCCURRENCES.map(
+        ({
+          occurrenceKey,
+          siteName,
+          origin,
+          bearingDegrees,
+          bridgeBearingFromSiteDegrees,
+        }) => ({
+          siteKey: railSiteKey(occurrenceKey),
+          siteName,
+          origin,
+          bearingDegrees,
+          bridgeKey: railBridgeKey(occurrenceKey),
+          bridgeBearingFromSiteDegrees,
+          rotated: true,
+        })
+      )
     );
   });
 

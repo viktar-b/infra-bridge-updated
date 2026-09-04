@@ -185,6 +185,7 @@ export const RAIL_SITE_OCCURRENCES = [
     bridgeName: 'Rail bridge',
     origin: [17_320.508, 50_000, 0] as const,
     bearingDegrees: 60,
+    bridgeBearingFromSiteDegrees: 0,
   },
   {
     occurrenceKey: '02',
@@ -192,6 +193,7 @@ export const RAIL_SITE_OCCURRENCES = [
     bridgeName: 'Rail bridge',
     origin: [34_641.016, 40_000, 0] as const,
     bearingDegrees: 120,
+    bridgeBearingFromSiteDegrees: -60,
   },
 ] as const;
 
@@ -203,6 +205,14 @@ export function railSiteKey(occurrenceKey: RailSiteOccurrenceKey) {
 
 export function railBridgeKey(occurrenceKey: RailSiteOccurrenceKey) {
   return `rail-bridge-${occurrenceKey}` as const;
+}
+
+export function railSiteOccurrence(occurrenceKey: RailSiteOccurrenceKey) {
+  const occurrence = RAIL_SITE_OCCURRENCES.find((item) => item.occurrenceKey === occurrenceKey);
+  if (occurrence === undefined) {
+    throw new Error(`unknown rail site occurrence ${occurrenceKey}`);
+  }
+  return occurrence;
 }
 
 /** Shared job set-out for both occurrences of the rail-arch Bridge definition. */
