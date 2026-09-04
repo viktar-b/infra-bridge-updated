@@ -19,7 +19,7 @@ function semantics({ name }: RoadSiteProps) {
     kind: 'site',
     category: 'site',
     role: 'transport-site',
-    composition: 'element',
+    composition: 'partial',
     properties: { name: name },
   });
 }

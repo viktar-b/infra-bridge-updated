@@ -472,6 +472,47 @@ profile coordinates to the Beam's transverse and vertical axes.
 - Positive and negative asymmetric profile coordinates retain their sign.
 - Core rectangular Beam profiles keep their current orientation.
 
+### BREP-015: Aggregate nested Sites under a collection Site
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, Families adapter |
+| Kind | API design |
+| Status | `candidate` |
+| Upstream | Not filed |
+| Last verified | 2026-09-04 (`brepjs-bim@0.24.1`) |
+
+#### Problem
+
+`civilParentAccepts` allows `kind: 'site'` only when `parent === 'project'`. A Site whose parent is a Site with `composition: 'collection'` is `FAMILIES_INVALID_CIVIL_HIERARCHY`. LOCAL-007 authors that tree: `InfraBridge` is the collection environment Site, and its children are partial `transport-site` Sites, including empty parking and road placeholders.
+
+The same check also needs a Site-typed `familiesToBim` root. Today's adapter maps the root key path onto the project when the root itself is civil, then still rejects nested Sites under that root. Role stays `transport-site`; COMPLEX versus PARTIAL is `composition`, not a new civil role.
+
+#### Expected result
+
+- A Site may sit under the families-to-BIM project **or** under a Site with `composition: 'collection'`.
+- Child Sites use `composition: 'partial' | 'element'`.
+- Empty geometry on every civil spatial node (existing rule).
+- `CIVIL_COMPOSITION` already maps `collection → COMPLEX` and `partial → PARTIAL`.
+- Role remains `transport-site`.
+- The root of `familiesToBim` may itself be a Site.
+- Aggregation is `IfcRelAggregates` from the COMPLEX parent to PARTIAL children.
+- `PROJECT_SPEC` CRS stays on the project. No geo-reference Product.
+
+#### Work needed before filing
+
+- Reduce the failure to one collection Site with two empty partial Site children and a Site-typed `familiesToBim` root.
+- Confirm `civilParentAccepts` is the only gate, and that a Site root does not collide with the project stable key.
+- Decide whether `element` Sites may nest under `collection`, or only `partial`.
+
+#### Acceptance criteria
+
+- Nested Sites under a collection Site project without `FAMILIES_INVALID_CIVIL_HIERARCHY`.
+- A Site-typed `familiesToBim` root projects as `IfcSite` COMPLEX and aggregates its Site children.
+- Child Sites keep their authored key paths, placements, and empty geometry.
+- Role `transport-site` is unchanged.
+- This model's environment Site aggregates five PARTIAL Sites over `IfcRelAggregates`.
+
 ## Deferred
 
 ### BREP-009: Support an IFC4X3_ADD2 schema token
@@ -552,19 +593,9 @@ in BREP-004.
 Change the full-model export assertions from twelve proxies to eight typed Members and four typed
 Signs. Require `projected.proxied` to be empty for the authored civil Products.
 
-### LOCAL-007: Add optional donor scene objects after BREP-011
+### LOCAL-007: Author environment and empty civil Sites; markers wait on BREP-011
 
-The donor contains objects that this model does not yet author:
-
-- `environment - site`, composition `COMPLEX`
-- `road parking - site`, composition `PARTIAL`
-- `road - site`, composition `PARTIAL`
-- Two `highway location marker` assemblies with predefined type `FACTORY`
-
-The donor places its other transport sites below the `COMPLEX` environment as `PARTIAL` children.
-If these objects are added, reparent the three existing transport sites to match that hierarchy.
-Add the objects only when their source geometry and set-out are in scope. Use the project CRS from
-`LOCAL-002` instead of copying the donor `geo-reference` proxy.
+The environment collection Site (`InfraBridge`, name `environment - site`) and the empty parking and road partial Sites are authored. Transport Sites use `composition: 'partial'`. IFC `IfcRelAggregates` nesting is blocked on BREP-015; this repository hoists nested Sites to Project siblings at the export boundary until that release is consumed. Highway location markers still wait on BREP-011. Do not copy the donor `geo-reference` proxy; CRS stays `PROJECT_SPEC`.
 
 ### LOCAL-008: Apply remaining export metadata
 

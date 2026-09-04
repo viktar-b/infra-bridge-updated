@@ -26,7 +26,7 @@ function semantics({ siteName }: RailSiteProps) {
     kind: 'site',
     category: 'site',
     role: 'transport-site',
-    composition: 'element',
+    composition: 'partial',
     properties: { name: siteName },
   });
 }
