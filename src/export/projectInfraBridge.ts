@@ -15,6 +15,7 @@ export function flattenNestedSitesForProjection(root: ResolvedElement): Resolved
   const environment: ResolvedElement = {
     ...root,
     keyPath: `${projectKeyPath}/environment`,
+    localTransforms: [],
     children: root.children.filter((child) => !isCivilSite(child)),
   };
 
@@ -25,7 +26,7 @@ export function flattenNestedSitesForProjection(root: ResolvedElement): Resolved
     keyPath: projectKeyPath,
     keyed: true,
     geometry: root.geometry,
-    localTransforms: [],
+    localTransforms: root.localTransforms,
     props: {},
     attributes: {},
     relationships: [],

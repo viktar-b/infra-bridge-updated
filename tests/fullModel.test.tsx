@@ -2,7 +2,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { csg, getBounds, init, isShape3D, measureVolume, unwrap, type Bounds3D } from 'brepjs';
-import { disposeImportedModel, familiesToBim, fromIfc, placedSolids, toIfc } from 'brepjs-bim';
+import { disposeImportedModel, familiesToBim, fromIfc, placedSolids, toIfc, type BimModel } from 'brepjs-bim';
 import {
   civilSemantics,
   el,
@@ -17,6 +17,7 @@ import { flattenNestedSitesForProjection, projectInfraBridge } from '../src/expo
 import { Footing } from '../src/families/footing.tsx';
 import { MATERIALS } from '../src/materials.ts';
 import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
+import { InfraBridge } from '../src/model/infraBridge.tsx';
 import { buildInfraBridge } from '../src/main.tsx';
 import { EMPTY_CIVIL_SITES, RAIL_SITE_OCCURRENCES, railBridgeKey, railSiteKey } from '../src/setout.ts';
 
@@ -238,6 +239,29 @@ describe('complete declarative infrastructure bridge model', () => {
       { keyPath: 'infra-bridge/road-parking', type: 'EmptyCivilSite' },
       { keyPath: 'infra-bridge/road', type: 'EmptyCivilSite' },
     ]);
+  });
+
+  it('keeps the environment root pose on the projection wrapper', async () => {
+    const root = resolve(
+      InfraBridge({
+        key: 'infra-bridge',
+        transform: [tTranslate([1_000, 2_000, 3_000])],
+      })
+    );
+    const flattened = flattenNestedSitesForProjection(root);
+    expect(flattened.localTransforms).toEqual(root.localTransforms);
+    expect(flattened.children[0]?.localTransforms).toEqual([]);
+
+    using evaluator = new csg.Evaluator();
+    const unmoved = projectFullModel(resolve(await buildInfraBridge()), evaluator);
+    using unmovedModel = unmoved.model;
+    const moved = projectFullModel(root, evaluator);
+    using movedModel = moved.model;
+
+    const unmovedOrigin = siteOrigin(unmovedModel, 'Road river bridge site');
+    const movedOrigin = siteOrigin(movedModel, 'Road river bridge site');
+    expect(unmovedOrigin).toEqual([17_320.508, 30_000, 0]);
+    expect(movedOrigin).toEqual([18_320.508, 32_000, 3_000]);
   });
 
   it('rejects nested Sites under a collection Site until BREP-015', async () => {
@@ -849,6 +873,14 @@ function projectFullModel(root: ResolvedElement, evaluator: csg.Evaluator) {
       proxyEvaluator: evaluator,
     })
   );
+}
+
+function siteOrigin(model: BimModel, name: string) {
+  const site = model
+    .getAllElements()
+    .find((element) => element.category === 'SITE' && element.spec.name === name);
+  expect(site?.category).toBe('SITE');
+  return site?.category === 'SITE' ? site.spec.origin : undefined;
 }
 
 function productNodes(nodes: readonly ResolvedElement[]): readonly ResolvedElement[] {
