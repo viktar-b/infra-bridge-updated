@@ -5,16 +5,23 @@ This file tracks changes that this repository needs from
 ledger. Local implementation tickets still belong under `.scratch/` as described in
 `docs/agents/issue-tracker.md`.
 
-Tested on 2026-09-03 with:
+Tested on 2026-09-04 with:
 
 - `brepjs@19.0.1`
-- `brepjs-bim@0.24.0`
+- `brepjs-bim@0.24.1`
 - `brepjs-families@0.12.0`
 - `occt-wasm@4.4.0`
 
-The 2026-09-03 bump consumed [andymai/brepjs#2278](https://github.com/andymai/brepjs/pull/2278) (multi-item IFC Body import, already in `0.23.2`) and [andymai/brepjs#2286](https://github.com/andymai/brepjs/pull/2286) (`brepjs-bim@0.24.0`: wall and railing `.geometry` is a `ProductBody` union; `takeExactProductBody()` exists). `brepjs@19.0.0` / `19.0.1` are the coordinated root majors for that bim-only breaking marker; the kernel tarball did not change. `occt-wasm@4.4.0` adds `chamferAsymmetric` and is unused here.
+The 2026-09-04 bump consumed [andymai/brepjs#2295](https://github.com/andymai/brepjs/pull/2295)
+(`brepjs-bim@0.24.1`): civil-semantic walls and railings keep authored exact Bodies when they
+differ from the parametric envelope. That closes [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272)
+(BREP-005). `brepjs@19.0.1`, `brepjs-families@0.12.0`, and `occt-wasm@4.4.0` are unchanged. The
+`ProductBody` union and `takeExactProductBody()` landed earlier in `0.24.0`
+([andymai/brepjs#2286](https://github.com/andymai/brepjs/pull/2286)).
 
-None of those releases close [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272). Published `0.24.0` still rebuilds `RoadRailing` and `SpandrelWall` from semantic envelopes. The full suite reports 58 passing tests and the two pending exact-Body checks. Wall and railing callers must use `placedSolids()` or `bodySolids()`; this repository updated the remaining exact-Family volume check accordingly.
+Civil wall and railing routes require `bodyEvaluator` (already supplied here). Callers still use
+`placedSolids()` or `bodySolids()` for ProductBody geometry. The RoadRailing and SpandrelWall
+exact-Body checks now run in the full suite.
 
 ## Policy
 
@@ -36,6 +43,31 @@ None of those releases close [andymai/brepjs#2272](https://github.com/andymai/br
   does not make an entry `resolved`.
 
 ## Resolved
+
+### BREP-005: Preserve compound and voided Bodies on typed civil routes
+
+| Field | Value |
+| --- | --- |
+| Target | `packages/brepjs-bim`, Families adapter |
+| Kind | Bug and API design |
+| Status | `resolved` |
+| Upstream | [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272), closed by [andymai/brepjs#2295](https://github.com/andymai/brepjs/pull/2295) in `brepjs-bim@0.24.1` |
+| Last verified | 2026-09-04 (`brepjs-bim@0.24.1`) |
+
+`#2286` (`brepjs-bim@0.24.0`) published the shared `ProductBody` contract and
+`takeExactProductBody()`. `#2295` connects evaluated Family Bodies to that contract. Civil-semantic
+walls and railings keep a parametric Body only after a volume-then-union coincidence proof against
+the post-opening candidate. Otherwise they retain the authored exact Body, including disconnected
+solids and CSG cuts, without changing `IfcWall` / `IfcRailing.GUARDRAIL`. Missing `bodyEvaluator`
+(or `proxyEvaluator`) is `FAMILIES_PRODUCT_BODY_EVALUATOR_REQUIRED`; the adapter does not fall back
+to a parametric envelope.
+
+This repository consumed the release by bumping `brepjs-bim` to `0.24.1`, replacing the known
+envelope-mismatch assertions in `tests/familyProjection.test.tsx`, and enabling the RoadRailing and
+SpandrelWall exact-Body round-trips in `tests/fullModel.test.tsx`. Round-trip checks use
+`geometry.solids`, `completeness`, and `volumeMm3` rather than the one-solid `geometry.solid` alias.
+Rectangular girders, stems, pads, decks, and the five-point `AbutmentSupportBeam` profile stay on
+their parametric paths.
 
 ### BREP-001: Compose Family transforms into IFC placements
 
@@ -96,95 +128,6 @@ This repository consumed the release by removing the `roundTripPlacementGaps` ex
 `tests/familyProjection.test.tsx` and enabling the pitched `ApproachSlab` world-bounds
 regression in `tests/fullModel.test.tsx`. `placedSolids()` without `parentFrame` remains
 relative to the containing spatial structure; world-bounds evidence is the IFC round-trip.
-
-## Filed
-
-### BREP-005: Preserve compound and voided Bodies on typed civil routes
-
-| Field | Value |
-| --- | --- |
-| Target | `packages/brepjs-bim`, Families adapter |
-| Kind | Bug and API design |
-| Status | `filed` |
-| Upstream | [andymai/brepjs#2272](https://github.com/andymai/brepjs/issues/2272), filed 2026-09-01 |
-| Last verified | 2026-09-03 (`brepjs-bim@0.24.0`) |
-
-#### Problem
-
-The civil Product routes synthesize typed specs from semantic envelope dimensions. This is exact
-for a rectangular Product. It is false for a compound or voided Product.
-
-`RoadRailing` authors two rails and repeated tapered posts. The typed route exports a solid
-guardrail panel. Each projected railing has 5.230 times the authored volume.
-
-`SpandrelWall` cuts paired arch openings. The typed route exports a solid box. Each projected wall
-has 1.963 times the authored volume.
-
-The IFC writers also move both envelope Bodies across their transverse Datum. The focused leaf
-fixture records the Body and placement losses independently.
-
-`#2273` made IFC import match those projected envelopes. `#2278` (`brepjs-bim@0.23.2`) now
-reads every Body representation item, which is a prerequisite for a multi-solid railing
-round-trip. Importing `fixtures/Donor-Infra-Bridge.ifc` with the schema token rewritten to
-`IFC4X3` reconstructs each donor `bridge road railing` as 14 `COMPLETE`
-`TESSELLATED_MANIFOLD` solids. That confirms the multi-item reader on the donor Body.
-
-`#2286` (`brepjs-bim@0.24.0`) published the shared `ProductBody` contract and
-`takeExactProductBody()`. Wall and railing `.geometry` is now `PARAMETRIC | EXACT`. Exact
-multi-solid Bodies serialize as separate IFC items, and exact wall `NetVolume` comes from the
-authoritative Body. That is the writer/model half of `#2272`. This model's export is still one
-parametric envelope, because the Families adapter does not yet hand evaluated civil wall and
-railing Bodies to that contract.
-
-The remaining defect is that the projected Body is still the envelope, not the authored
-compound or voided solid. After the Families adapter lands, round-trip assertions should use
-`geometry.solids` / `completeness` rather than the one-solid `geometry.solid` alias.
-
-Published `0.24.0` still materializes an exact Body only for Earthworks Fill. `RailingSpec.infill:
-'POSTED'` is a generic box post/rail, not this Family's six-point tapered profile, and is not a
-workaround. A packed build of the unreleased Families adapter branch
-(`codex/2272-typed-civil-families`) makes authored, eager-projected, and IFC-imported volumes
-agree for `RoadRailing` and `SpandrelWall` at the existing `toBeCloseTo` precisions. That branch
-is not a consumed release.
-
-The existing Family-supplied Beam profile used by `AbutmentSupportBeam` proves that a typed route
-can preserve a richer parametric definition when the spec supports it.
-
-#### Reproduction
-
-Resolve and evaluate the model, project it through `familiesToBim`, and compare authored and typed
-BIM volumes for the two `RoadRailing` and four `SpandrelWall` occurrences.
-
-`tests/familyProjection.test.tsx` still asserts the known incorrect result: `RoadRailing`
-projected volume is more than twice the authored volume, and `SpandrelWall` projected volume is
-more than 1.5 times the authored volume. `tests/fullModel.test.tsx` keeps the intended equality
-checks pending.
-
-#### Expected result
-
-At the Family projection seam, use a typed parametric IFC Body only when it matches the authored
-Family Body. Otherwise, preserve the exact authored Body or accept a Family-supplied typed
-specification.
-
-The IFC class must remain typed. An exact Body is not a request to downgrade the occurrence to a
-proxy.
-
-#### Acceptance criteria
-
-- A civil Product can opt into an exact evaluated Body, or supply a typed spec that describes the
-  same shape.
-- Body evaluation supports the multi-solid railing compound or defines a clear fusion step.
-- `RoadRailing` exports its posts and rails as `IfcRailing.GUARDRAIL`.
-- `SpandrelWall` exports its arch openings as `IfcWall`.
-- Authored and projected volume and world bounds agree within the established geometry tolerance.
-- Rectangular girders, stems, pads, and decks continue to use parametric swept solids.
-- The five-point `AbutmentSupportBeam` profile continues to use its supplied parametric profile.
-- Evaluator and model ownership rules remain explicit and leak-free.
-
-#### Local completion
-
-Choose the upstream path for `RoadRailing` and `SpandrelWall`, add round-trip assertions, and
-remove the known envelope mismatch. See `LOCAL-006`.
 
 ## Ready to file
 
@@ -609,14 +552,6 @@ in BREP-004.
 Change the full-model export assertions from twelve proxies to eight typed Members and four typed
 Signs. Require `projected.proxied` to be empty for the authored civil Products.
 
-### LOCAL-006: Select the typed exact-Body path after BREP-005
-
-Use the upstream contract to preserve the posts and rails in `RoadRailing` and the arch openings
-in `SpandrelWall`. Keep the five-point `AbutmentSupportBeam` profile on its existing parametric
-Beam path.
-
-Add volume, bounds, IFC class, material, and round-trip assertions for each affected Family.
-
 ### LOCAL-007: Add optional donor scene objects after BREP-011
 
 The donor contains objects that this model does not yet author:
@@ -654,8 +589,8 @@ another private repository path.
 
 Document the required `brepjs`, `brepjs-families`, and `brepjs-bim` versions or peer dependency
 ranges, the millimetre unit contract, the civil-semantics dependency, and any required runtime
-initialization. Datum-aware placement is available after BREP-014; remaining exporter gaps for
-compound and voided Bodies are BREP-005.
+initialization. Datum-aware placement is available after BREP-014; compound and voided Bodies
+round-trip after BREP-005.
 
 Acceptance criteria:
 
@@ -690,6 +625,13 @@ Bridge Parts author `collection` / `element` / `partial`, which the adapter maps
 
 Subdivision stays function-based (`LONGITUDINAL`, `VERTICAL`, `REGION`). The donor stamps `LATERAL`
 on every Bridge Part; that is not required by a known checker.
+
+### LOCAL-006: Select the typed exact-Body path after BREP-005
+
+Done on 2026-09-04 with `brepjs-bim@0.24.1`. `RoadRailing` keeps its posts and rails and
+`SpandrelWall` keeps its arch openings through typed projection. Focused and full-model fixtures
+assert volume, bounds, IFC class, material, and round-trip. `AbutmentSupportBeam` stays on its
+parametric profile path.
 
 ### LOCAL-002: Configure and verify the project CRS
 
@@ -743,5 +685,5 @@ Acceptance criteria:
   of bounds alone.
 - Relational validation changes are reviewed as interface changes rather than hidden inside
   kernel refactors.
-- BREP-005 and LOCAL-006 continue to track exporter fidelity separately from Family
-  parametricity.
+- Exporter fidelity for compound and voided Bodies is resolved (BREP-005 / LOCAL-006)
+  and stays separate from Family parametricity.

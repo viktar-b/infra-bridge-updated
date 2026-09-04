@@ -70,8 +70,16 @@ const exactBodyFamilies = new Set([
   'MainGirder',
   'PierStem',
   'RailPierStem',
+  'RoadRailing',
+  'SpandrelWall',
 ]);
-const tessellatedRoundTripFamilies = new Set(['ArchSegment', 'BridgeNameSign', 'EarthFill']);
+const tessellatedRoundTripFamilies = new Set([
+  'ArchSegment',
+  'BridgeNameSign',
+  'EarthFill',
+  'RoadRailing',
+  'SpandrelWall',
+]);
 
 const placement = [tTranslate([1_000, 2_000, 3_000])];
 
@@ -325,15 +333,12 @@ describe('leaf Family projection fidelity', () => {
         if (exactBodyFamilies.has(leaf.type)) {
           expectTupleClose(projectedBounds, authoredBounds, 3, leaf.type);
           expect(projectedVolume, leaf.type).toBeCloseTo(authoredVolume, 3);
+          if (leaf.type === 'RoadRailing') {
+            expect(projectedShapes.length, leaf.type).toBeGreaterThan(1);
+          }
         } else if (leaf.type === 'AbutmentSupportBeam') {
           expect(projectedVolume, leaf.type).toBeCloseTo(authoredVolume, 3);
           expect(projectedBounds[2]).not.toBeCloseTo(authoredBounds[2] ?? 0, 3);
-        } else if (leaf.type === 'RoadRailing') {
-          expect(projectedVolume).toBeGreaterThan(authoredVolume * 2);
-          expect(projectedBounds[0]).not.toBeCloseTo(authoredBounds[0], 3);
-        } else if (leaf.type === 'SpandrelWall') {
-          expectTupleClose(projectedBounds, authoredBounds, 3, leaf.type);
-          expect(projectedVolume).toBeGreaterThan(authoredVolume * 1.5);
         }
       } finally {
         for (const shape of projectedShapes) shape[Symbol.dispose]();
@@ -358,13 +363,18 @@ describe('leaf Family projection fidelity', () => {
       for (const expected of roundTripExpectations) {
         const importedElement = imported.elements.find(({ guid }) => guid === expected.guid);
         expect(importedElement?.category).toBe(expected.category);
-        const importedSolid = importedElement?.geometry.solid;
+        const importedGeometry = importedElement?.geometry;
+        expect(importedGeometry, expected.familyType).toBeDefined();
+        if (importedGeometry === undefined) continue;
 
-        expect(importedSolid, expected.familyType).not.toBeNull();
-        expect(importedSolid, expected.familyType).toBeDefined();
-        if (importedSolid === null || importedSolid === undefined) continue;
-        const importedBounds = boundsTuple(getBounds(importedSolid));
-        const importedVolume = totalVolume([importedSolid]);
+        expect(importedGeometry.completeness, expected.familyType).toBe('COMPLETE');
+        expect(importedGeometry.solids.length, expected.familyType).toBeGreaterThan(0);
+        expect(importedGeometry.volumeMm3, expected.familyType).not.toBeNull();
+        expect(importedGeometry.bounds, expected.familyType).not.toBeNull();
+        if (importedGeometry.volumeMm3 === null || importedGeometry.bounds === null) continue;
+
+        const importedVolume = importedGeometry.volumeMm3;
+        const importedBounds = boundsTuple(importedGeometry.bounds);
         if (tessellatedRoundTripFamilies.has(expected.familyType)) {
           expect(importedVolume / expected.projectedVolume, expected.familyType).toBeCloseTo(1, 5);
         } else {
@@ -381,7 +391,7 @@ describe('leaf Family projection fidelity', () => {
           continue;
         }
 
-        expect(importedElement?.geometry.fidelity, expected.familyType).toBe(
+        expect(importedGeometry.fidelity, expected.familyType).toBe(
           tessellatedRoundTripFamilies.has(expected.familyType)
             ? 'TESSELLATED_MANIFOLD'
             : 'PARAMETRIC'
@@ -392,6 +402,9 @@ describe('leaf Family projection fidelity', () => {
           2,
           `${expected.familyType} IFC round-trip`
         );
+        if (expected.familyType === 'RoadRailing') {
+          expect(importedGeometry.solids.length, expected.familyType).toBeGreaterThan(1);
+        }
       }
     } finally {
       disposeImportedModel(imported);

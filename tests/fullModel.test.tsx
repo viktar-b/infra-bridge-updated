@@ -491,9 +491,142 @@ describe('complete declarative infrastructure bridge model', () => {
     }
   }, 60_000);
 
-  it.todo('preserves the posted RoadRailing body through typed BIM projection');
+  it('preserves the posted RoadRailing body through typed BIM projection', async () => {
+    const root = resolve(await buildInfraBridge());
+    const railings = flatten(root).filter(({ type }) => type === 'RoadRailing');
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: PROJECT_SPEC,
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
 
-  it.todo('preserves the opened SpandrelWall body through typed BIM projection');
+    expect(railings).toHaveLength(2);
+    const projectedRailings: Array<{ readonly guid: string; readonly volumeMm3: number }> = [];
+    for (const railing of railings) {
+      const localId = projected.idByKeyPath.get(railing.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const projectedRailing = bim.getElement(localId);
+      expect(projectedRailing?.category).toBe('RAILING');
+      if (projectedRailing?.category !== 'RAILING') continue;
+      expect(projectedRailing.spec.predefinedType).toBe('GUARDRAIL');
+      expect(projectedRailing.spec.materialName).toBe(railing.props['material']);
+      expect(projectedRailing.geometry.kind).toBe('EXACT');
+      if (projectedRailing.geometry.kind !== 'EXACT') continue;
+      expect(projectedRailing.geometry.solids.length).toBeGreaterThan(1);
+
+      const authoredShape = evaluated.byKeyPath.get(railing.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok) continue;
+      expect(isShape3D(authoredShape.value)).toBe(true);
+      if (!isShape3D(authoredShape.value)) continue;
+      const projectedShapes = unwrap(placedSolids(projectedRailing));
+      try {
+        expect(projectedShapes.length).toBeGreaterThan(1);
+        const projectedVolume = projectedShapes.reduce(
+          (sum, shape) => sum + unwrap(measureVolume(shape)),
+          0
+        );
+        expect(projectedVolume).toBeCloseTo(unwrap(measureVolume(authoredShape.value)), 3);
+        projectedRailings.push({ guid: projectedRailing.guid, volumeMm3: projectedVolume });
+      } finally {
+        for (const shape of projectedShapes) shape[Symbol.dispose]();
+      }
+    }
+
+    const bytes = unwrap(await toIfc(bim, IFC_META));
+    const imported = unwrap(await fromIfc(bytes));
+    try {
+      expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
+      for (const expected of projectedRailings) {
+        const railing = imported.elements.find(({ guid }) => guid === expected.guid);
+        expect(railing?.category).toBe('RAILING');
+        expect(railing?.predefinedType).toBe('GUARDRAIL');
+        expect(railing?.geometry.fidelity).toBe('TESSELLATED_MANIFOLD');
+        expect(railing?.geometry.completeness).toBe('COMPLETE');
+        expect(railing?.geometry.solids.length).toBeGreaterThan(1);
+        expect(railing?.geometry.volumeMm3).not.toBeNull();
+        if (railing?.geometry.volumeMm3 === null || railing?.geometry.volumeMm3 === undefined) {
+          continue;
+        }
+        expect(railing.geometry.volumeMm3 / expected.volumeMm3).toBeCloseTo(1, 5);
+        expect(railing?.material?.name).toBe(MATERIALS.bridgeTimber);
+      }
+    } finally {
+      disposeImportedModel(imported);
+    }
+  }, 60_000);
+
+  it('preserves the opened SpandrelWall body through typed BIM projection', async () => {
+    const root = resolve(await buildInfraBridge());
+    const walls = flatten(root).filter(({ type }) => type === 'SpandrelWall');
+    using evaluator = new csg.Evaluator();
+    const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
+    const projected = unwrap(
+      familiesToBim(root, {
+        project: PROJECT_SPEC,
+        bodyEvaluator: evaluator,
+        proxyEvaluator: evaluator,
+      })
+    );
+    using bim = projected.model;
+
+    expect(walls).toHaveLength(4);
+    const projectedWalls: Array<{ readonly guid: string; readonly volumeMm3: number }> = [];
+    for (const wall of walls) {
+      const localId = projected.idByKeyPath.get(wall.keyPath);
+      expect(localId).toBeDefined();
+      if (localId === undefined) continue;
+      const projectedWall = bim.getElement(localId);
+      expect(projectedWall?.category).toBe('WALL');
+      if (projectedWall?.category !== 'WALL') continue;
+      expect(projectedWall.spec.materialName).toBe(wall.props['material']);
+      expect(projectedWall.geometry.kind).toBe('EXACT');
+
+      const authoredShape = evaluated.byKeyPath.get(wall.keyPath)?.shape;
+      expect(authoredShape?.ok).toBe(true);
+      if (authoredShape === undefined || !authoredShape.ok) continue;
+      expect(isShape3D(authoredShape.value)).toBe(true);
+      if (!isShape3D(authoredShape.value)) continue;
+      const projectedShapes = unwrap(placedSolids(projectedWall));
+      try {
+        expect(projectedShapes.length).toBeGreaterThan(0);
+        const projectedVolume = projectedShapes.reduce(
+          (sum, shape) => sum + unwrap(measureVolume(shape)),
+          0
+        );
+        expect(projectedVolume).toBeCloseTo(unwrap(measureVolume(authoredShape.value)), 3);
+        projectedWalls.push({ guid: projectedWall.guid, volumeMm3: projectedVolume });
+      } finally {
+        for (const shape of projectedShapes) shape[Symbol.dispose]();
+      }
+    }
+
+    const bytes = unwrap(await toIfc(bim, IFC_META));
+    const imported = unwrap(await fromIfc(bytes));
+    try {
+      expect(imported.diagnostics.issues.filter(({ severity }) => severity === 'error')).toEqual([]);
+      for (const expected of projectedWalls) {
+        const wall = imported.elements.find(({ guid }) => guid === expected.guid);
+        expect(wall?.category).toBe('WALL');
+        expect(wall?.geometry.fidelity).toBe('TESSELLATED_MANIFOLD');
+        expect(wall?.geometry.completeness).toBe('COMPLETE');
+        expect(wall?.geometry.volumeMm3).not.toBeNull();
+        if (wall?.geometry.volumeMm3 === null || wall?.geometry.volumeMm3 === undefined) continue;
+        expect(wall.geometry.volumeMm3 / expected.volumeMm3).toBeCloseTo(1, 5);
+        expect(wall?.material?.name).toBe(MATERIALS.graniteMasonry);
+        const quantities = wall?.psets.find(({ name }) => name === 'Qto_WallBaseQuantities');
+        expect(quantities?.properties['NetVolume']).toBeCloseTo(expected.volumeMm3 / 1e9, 9);
+      }
+    } finally {
+      disposeImportedModel(imported);
+    }
+  }, 60_000);
 
   it('exports a translation-only civil tree through familiesToBim', async () => {
     const AxisAlignedBridgePart = family(

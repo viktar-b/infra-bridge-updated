@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "brepjs": "^19.0.1",
-    "brepjs-bim": "^0.24.0",
+    "brepjs-bim": "^0.24.1",
     "brepjs-families": "^0.12.0",
     "occt-wasm": "^4.4.0",
     "zod": "^4.5.4"
