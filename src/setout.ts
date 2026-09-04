@@ -4,6 +4,28 @@ export const ROAD_SITE_SET_OUT = {
   bearingDegrees: 120,
 } as const;
 
+export interface EmptyCivilSiteSetOut {
+  readonly key: 'road-parking' | 'road';
+  readonly name: string;
+  readonly origin: readonly [number, number, number];
+  readonly bearingDegrees: number;
+}
+
+export const EMPTY_CIVIL_SITES = {
+  parking: {
+    key: 'road-parking',
+    name: 'road parking - site',
+    origin: [0, 20_000, 0],
+    bearingDegrees: 120,
+  },
+  road: {
+    key: 'road',
+    name: 'road - site',
+    origin: [-17_320.508, 10_000, 0],
+    bearingDegrees: 120,
+  },
+} as const satisfies Record<'parking' | 'road', EmptyCivilSiteSetOut>;
+
 export const ROAD_BRIDGE_SET_OUT = {
   datum: {
     origin: [0, 0, 242.321] as const,

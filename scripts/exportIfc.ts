@@ -1,15 +1,15 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { init, unwrap, csg } from 'brepjs';
 import { resolve } from 'brepjs-families';
-import { familiesToBim, toIfc } from 'brepjs-bim';
-import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
+import { toIfc } from 'brepjs-bim';
+import { IFC_META } from '../src/exportConfig.ts';
+import { projectInfraBridge } from '../src/export/projectInfraBridge.ts';
 import { buildInfraBridge } from '../src/main.tsx';
 
 await init();
 const tree = resolve(await buildInfraBridge());
 using evaluator = new csg.Evaluator();
-const projected = familiesToBim(tree, {
-  project: PROJECT_SPEC,
+const projected = projectInfraBridge(tree, {
   bodyEvaluator: evaluator,
   proxyEvaluator: evaluator,
 });

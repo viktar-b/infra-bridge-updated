@@ -2,7 +2,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { csg, getBounds, init, isShape3D, measureVolume, unwrap, type Bounds3D } from 'brepjs';
-import { disposeImportedModel, familiesToBim, fromIfc, placedSolids, toIfc } from 'brepjs-bim';
+import { disposeImportedModel, familiesToBim, fromIfc, placedSolids, toIfc, type BimModel } from 'brepjs-bim';
 import {
   civilSemantics,
   el,
@@ -13,11 +13,13 @@ import {
   tTranslate,
   type ResolvedElement,
 } from 'brepjs-families';
+import { flattenNestedSitesForProjection, projectInfraBridge } from '../src/export/projectInfraBridge.ts';
 import { Footing } from '../src/families/footing.tsx';
 import { MATERIALS } from '../src/materials.ts';
 import { IFC_META, PROJECT_SPEC } from '../src/exportConfig.ts';
+import { InfraBridge } from '../src/model/infraBridge.tsx';
 import { buildInfraBridge } from '../src/main.tsx';
-import { RAIL_SITE_OCCURRENCES, railBridgeKey, railSiteKey } from '../src/setout.ts';
+import { EMPTY_CIVIL_SITES, RAIL_SITE_OCCURRENCES, railBridgeKey, railSiteKey } from '../src/setout.ts';
 
 beforeAll(async () => {
   await init();
@@ -25,21 +27,78 @@ beforeAll(async () => {
 
 describe('complete declarative infrastructure bridge model', () => {
   it('authors the complete hierarchy with typed civil semantics', async () => {
-    const nodes = flatten(resolve(await buildInfraBridge()));
+    const root = resolve(await buildInfraBridge());
+    const nodes = flatten(root);
     const sites = nodes.filter(({ semantics }) => semantics?.kind === 'site');
     const facilities = nodes.filter(({ semantics }) => semantics?.kind === 'facility');
     const parts = nodes.filter(({ semantics }) => semantics?.kind === 'spatial-part');
     const products = nodes.filter(({ semantics }) => semantics?.kind === 'product');
 
-    expect(sites).toHaveLength(3);
+    expect(sites).toHaveLength(6);
     expect(
       sites.every(
         ({ semantics }) =>
           semantics?.kind === 'site' &&
           'category' in semantics &&
           semantics.category === 'site' &&
-          semantics.role === 'transport-site' &&
-          semantics.composition === 'element'
+          semantics.role === 'transport-site'
+      )
+    ).toBe(true);
+    expect(root.semantics).toMatchObject({
+      kind: 'site',
+      category: 'site',
+      role: 'transport-site',
+      composition: 'collection',
+      properties: { name: 'environment - site' },
+    });
+    expect(
+      root.children.every(
+        ({ semantics }) =>
+          semantics?.kind === 'site' &&
+          'composition' in semantics &&
+          semantics.composition === 'partial'
+      )
+    ).toBe(true);
+    expect(root.children.map(({ type }) => type)).toEqual([
+      'RoadSite',
+      'RailSite',
+      'RailSite',
+      'EmptyCivilSite',
+      'EmptyCivilSite',
+    ]);
+    const emptySites = root.children.filter(({ type }) => type === 'EmptyCivilSite');
+    expect(
+      emptySites.map(({ keyPath, semantics, children, geometry }) => ({
+        key: keyPath.slice(keyPath.lastIndexOf('/') + 1),
+        name: semantics?.properties?.['name'],
+        childCount: children.length,
+        geometry: geometry.kind,
+        hasFacility: children.some((child) => child.semantics?.kind === 'facility'),
+        hasProduct: children.some((child) => child.semantics?.kind === 'product'),
+      }))
+    ).toEqual([
+      {
+        key: EMPTY_CIVIL_SITES.parking.key,
+        name: EMPTY_CIVIL_SITES.parking.name,
+        childCount: 0,
+        geometry: 'Empty',
+        hasFacility: false,
+        hasProduct: false,
+      },
+      {
+        key: EMPTY_CIVIL_SITES.road.key,
+        name: EMPTY_CIVIL_SITES.road.name,
+        childCount: 0,
+        geometry: 'Empty',
+        hasFacility: false,
+        hasProduct: false,
+      },
+    ]);
+    expect(
+      products.every(
+        ({ keyPath }) =>
+          keyPath.startsWith('infra-bridge/road-site') ||
+          keyPath.startsWith('infra-bridge/rail-site-0')
       )
     ).toBe(true);
     expect(facilities).toHaveLength(3);
@@ -136,8 +195,14 @@ describe('complete declarative infrastructure bridge model', () => {
       type: 'InfraBridge',
       keyPath: 'infra-bridge',
     });
-    expect(root.semantics).toBeUndefined();
-    expect(nodes.filter(({ semantics }) => semantics?.kind === 'site')).toHaveLength(3);
+    expect(root.semantics).toMatchObject({
+      kind: 'site',
+      category: 'site',
+      role: 'transport-site',
+      composition: 'collection',
+      properties: { name: 'environment - site' },
+    });
+    expect(nodes.filter(({ semantics }) => semantics?.kind === 'site')).toHaveLength(6);
     expect(nodes.filter(({ semantics }) => semantics?.kind === 'facility')).toHaveLength(3);
     expect(nodes.filter(({ semantics }) => semantics?.kind === 'spatial-part')).toHaveLength(18);
     expect(productNodes(nodes)).toHaveLength(47);
@@ -148,17 +213,76 @@ describe('complete declarative infrastructure bridge model', () => {
     expect(new Set(nodes.map(({ keyPath }) => keyPath)).size).toBe(nodes.length);
   });
 
-  it('exports the full authored tree through familiesToBim', async () => {
+  it('lifts nested Sites to Project siblings for projection', async () => {
     const root = resolve(await buildInfraBridge());
-    using evaluator = new csg.Evaluator();
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
+    const flattened = flattenNestedSitesForProjection(root);
+    expect(flattened).toMatchObject({
+      type: 'Group',
+      keyPath: 'infra-bridge',
+      keyed: true,
+    });
+    expect(flattened.semantics).toBeUndefined();
+    expect(flattened.children[0]).toMatchObject({
+      type: 'InfraBridge',
+      keyPath: 'infra-bridge/environment',
+      semantics: {
+        kind: 'site',
+        composition: 'collection',
+        properties: { name: 'environment - site' },
+      },
+    });
+    expect(flattened.children[0]?.children).toEqual([]);
+    expect(flattened.children.slice(1).map(({ keyPath, type }) => ({ keyPath, type }))).toEqual([
+      { keyPath: 'infra-bridge/road-site', type: 'RoadSite' },
+      { keyPath: 'infra-bridge/rail-site-01', type: 'RailSite' },
+      { keyPath: 'infra-bridge/rail-site-02', type: 'RailSite' },
+      { keyPath: 'infra-bridge/road-parking', type: 'EmptyCivilSite' },
+      { keyPath: 'infra-bridge/road', type: 'EmptyCivilSite' },
+    ]);
+  });
+
+  it('keeps the environment root pose on the projection wrapper', async () => {
+    const root = resolve(
+      InfraBridge({
+        key: 'infra-bridge',
+        transform: [tTranslate([1_000, 2_000, 3_000])],
       })
     );
+    const flattened = flattenNestedSitesForProjection(root);
+    expect(flattened.localTransforms).toEqual(root.localTransforms);
+    expect(flattened.children[0]?.localTransforms).toEqual([]);
+
+    using evaluator = new csg.Evaluator();
+    const unmoved = projectFullModel(resolve(await buildInfraBridge()), evaluator);
+    using unmovedModel = unmoved.model;
+    const moved = projectFullModel(root, evaluator);
+    using movedModel = moved.model;
+
+    const unmovedOrigin = siteOrigin(unmovedModel, 'Road river bridge site');
+    const movedOrigin = siteOrigin(movedModel, 'Road river bridge site');
+    expect(unmovedOrigin).toEqual([17_320.508, 30_000, 0]);
+    expect(movedOrigin).toEqual([18_320.508, 32_000, 3_000]);
+  });
+
+  it('rejects nested Sites under a collection Site until BREP-015', async () => {
+    const root = resolve(await buildInfraBridge());
+    using evaluator = new csg.Evaluator();
+    const projected = familiesToBim(root, {
+      project: PROJECT_SPEC,
+      bodyEvaluator: evaluator,
+      proxyEvaluator: evaluator,
+    });
+    expect(projected.ok).toBe(false);
+    if (projected.ok) return;
+    expect(projected.error.code).toBe('FAMILIES_INVALID_CIVIL_HIERARCHY');
+  });
+
+  it('exports the full authored tree through projectInfraBridge', async () => {
+    const root = resolve(await buildInfraBridge());
+    using evaluator = new csg.Evaluator();
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
+    expect(bim.getAllElements().filter(({ category }) => category === 'SITE')).toHaveLength(6);
     expect(bim.getBridges()).toHaveLength(3);
     expect(bim.getBridgeParts()).toHaveLength(18);
     expect(bim.getBeams()).toHaveLength(8);
@@ -204,13 +328,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(approachSlabs).toHaveLength(2);
@@ -271,13 +389,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const root = resolve(await buildInfraBridge());
     const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
     using evaluator = new csg.Evaluator();
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(approachSlabs).toHaveLength(2);
@@ -299,13 +411,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const approachSlabs = flatten(root).filter(({ type }) => type === 'ApproachSlab');
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(approachSlabs).toHaveLength(2);
@@ -360,13 +466,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const supportBeams = flatten(root).filter(({ type }) => type === 'AbutmentSupportBeam');
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(supportBeams).toHaveLength(2);
@@ -453,13 +553,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const exactFamilies = flatten(root).filter(({ type }) => expectedCategories.has(type));
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(exactFamilies).toHaveLength(37);
@@ -496,13 +590,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const railings = flatten(root).filter(({ type }) => type === 'RoadRailing');
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(railings).toHaveLength(2);
@@ -567,13 +655,7 @@ describe('complete declarative infrastructure bridge model', () => {
     const walls = flatten(root).filter(({ type }) => type === 'SpandrelWall');
     using evaluator = new csg.Evaluator();
     const evaluated = evaluateModel(root, evaluator, {}, { shapes: true });
-    const projected = unwrap(
-      familiesToBim(root, {
-        project: PROJECT_SPEC,
-        bodyEvaluator: evaluator,
-        proxyEvaluator: evaluator,
-      })
-    );
+    const projected = projectFullModel(root, evaluator);
     using bim = projected.model;
 
     expect(walls).toHaveLength(4);
@@ -782,6 +864,23 @@ describe('complete declarative infrastructure bridge model', () => {
 
 function flatten(root: ResolvedElement): readonly ResolvedElement[] {
   return [root, ...root.children.flatMap(flatten)];
+}
+
+function projectFullModel(root: ResolvedElement, evaluator: csg.Evaluator) {
+  return unwrap(
+    projectInfraBridge(root, {
+      bodyEvaluator: evaluator,
+      proxyEvaluator: evaluator,
+    })
+  );
+}
+
+function siteOrigin(model: BimModel, name: string) {
+  const site = model
+    .getAllElements()
+    .find((element) => element.category === 'SITE' && element.spec.name === name);
+  expect(site?.category).toBe('SITE');
+  return site?.category === 'SITE' ? site.spec.origin : undefined;
 }
 
 function productNodes(nodes: readonly ResolvedElement[]): readonly ResolvedElement[] {
